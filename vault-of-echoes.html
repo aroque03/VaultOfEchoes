@@ -1,0 +1,2109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault of Echoes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --stone-0:#0d0f14;   /* deepest bg */
+    --stone-1:#161a22;   /* panel */
+    --stone-2:#242b38;   /* wall face */
+    --stone-3:#39435a;   /* wall edge */
+    --floor-0:#1b2130;   /* floor base */
+    --floor-1:#222a3c;   /* floor dither */
+    --torch:#f2a03d;     /* warm amber accent */
+    --torch-dim:#b9702a;
+    --iron:#7f93b8;      /* cold blue */
+    --gold:#f6d24b;
+    --key:#e8c34a;
+    --parch:#e8dcc0;     /* parchment text */
+    --danger:#e2554e;
+    --ok:#5fbf7d;
+    --line:#2c3547;
+    --gem-r:#e2554e;     /* ruby gem */
+    --gem-g:#5fbf7d;     /* emerald gem */
+    --gem-b:#5b8def;     /* sapphire gem */
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(120% 90% at 50% -10%, #1a2030 0%, var(--stone-0) 60%);
+    color:var(--parch);
+    font-family:"Press Start 2P", ui-monospace, "Courier New", monospace;
+    display:flex;align-items:center;justify-content:center;
+    min-height:100%;padding:16px;
+    -webkit-font-smoothing:none;
+  }
+  .frame{width:100%;max-width:760px}
+  .titlebar{
+    display:flex;align-items:baseline;justify-content:space-between;
+    gap:10px;margin-bottom:10px;flex-wrap:wrap;
+  }
+  .titlebar h1{
+    font-size:15px;letter-spacing:1px;color:var(--torch);
+    text-shadow:0 2px 0 #000, 0 0 14px rgba(242,160,61,.35);
+  }
+  .titlebar .sub{font-size:8px;color:var(--iron);letter-spacing:1px}
+
+  .hud{
+    display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;
+    background:var(--stone-1);border:2px solid var(--line);
+    padding:8px 10px;font-size:8px;line-height:1.6;
+    box-shadow:0 3px 0 #000;
+  }
+  .hud .cell{display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .hud .val{color:var(--torch)}
+  .hud .pip{color:var(--stone-3)}
+  .hud .pip.on{color:var(--gold)}
+  .hud .key.on{color:var(--key)}
+  .hud .spacer{flex:1}
+  .hud button{
+    font-family:inherit;font-size:8px;cursor:pointer;color:var(--parch);
+    background:var(--stone-2);border:2px solid var(--stone-3);
+    padding:5px 8px;box-shadow:0 2px 0 #000;
+  }
+  .hud button:hover{background:var(--stone-3)}
+  .hud button:active{transform:translateY(2px);box-shadow:none}
+  .hud button:disabled{opacity:.4;cursor:not-allowed}
+
+  .stage{
+    position:relative;margin-top:10px;background:var(--stone-0);
+    border:3px solid var(--line);box-shadow:0 4px 0 #000, inset 0 0 60px rgba(0,0,0,.6);
+    line-height:0;
+  }
+  canvas{
+    display:block;width:100%;height:auto;
+    image-rendering:pixelated;image-rendering:crisp-edges;
+  }
+  /* torchlight vignette over the maze */
+  .stage::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(75% 75% at 50% 45%, transparent 55%, rgba(0,0,0,.55) 100%);
+    mix-blend-mode:multiply;
+  }
+
+  .controls{margin-top:8px;font-size:7px;color:var(--iron);letter-spacing:1px;line-height:1.8}
+  .controls b{color:var(--torch)}
+
+  /* overlays */
+  .overlay{
+    position:absolute;inset:0;z-index:5;display:none;
+    align-items:center;justify-content:center;padding:16px;
+    background:rgba(6,8,12,.86);
+  }
+  .overlay.show{display:flex}
+  .card{
+    width:100%;max-width:520px;background:var(--stone-1);
+    border:3px solid var(--stone-3);box-shadow:0 5px 0 #000;
+    padding:18px;line-height:1.7;
+  }
+  .card h2{font-size:12px;color:var(--torch);margin-bottom:12px;letter-spacing:1px}
+  .card p{font-size:9px;color:var(--parch);margin-bottom:10px}
+  .card .quiet{color:var(--iron);font-size:8px}
+  .card .btn{
+    font-family:inherit;font-size:9px;cursor:pointer;color:#161a22;
+    background:var(--torch);border:none;padding:10px 14px;margin-top:6px;
+    box-shadow:0 3px 0 #7a4a17;letter-spacing:1px;
+  }
+  .card .btn:hover{background:#ffb455}
+  .card .btn:active{transform:translateY(3px);box-shadow:none}
+  .card .btn.ghost{background:var(--stone-2);color:var(--parch);box-shadow:0 3px 0 #000}
+  .card .btn.ghost:hover{background:var(--stone-3)}
+  .card .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+
+  /* bug form */
+  .ctx{font-size:8px;color:var(--iron);background:var(--stone-0);
+    border:2px solid var(--line);padding:7px 8px;margin-bottom:12px}
+  .ctx b{color:var(--torch)}
+  label{display:block;font-size:8px;color:var(--iron);margin:10px 0 5px;letter-spacing:1px}
+  select,textarea{
+    width:100%;font-family:inherit;font-size:9px;color:var(--parch);
+    background:var(--stone-0);border:2px solid var(--stone-3);padding:8px;
+  }
+  textarea{resize:vertical;min-height:66px;line-height:1.6}
+  select:focus,textarea:focus{outline:none;border-color:var(--torch)}
+  .sev{display:flex;gap:6px;margin-top:5px}
+  .sev button{
+    flex:1;font-family:inherit;font-size:8px;cursor:pointer;color:var(--parch);
+    background:var(--stone-0);border:2px solid var(--stone-3);padding:9px 2px;
+  }
+  .sev button .n{display:block;font-size:11px;margin-bottom:3px;color:var(--iron)}
+  .sev button:hover{border-color:var(--iron)}
+  .sev button.sel{border-color:var(--torch);background:#2a2013}
+  .sev button.sel .n{color:var(--torch)}
+  .sevhint{font-size:7px;color:var(--iron);margin-top:6px;min-height:12px}
+
+  .toast{
+    position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
+    z-index:8;background:var(--stone-1);border:2px solid var(--ok);
+    color:var(--parch);font-size:8px;padding:8px 12px;box-shadow:0 3px 0 #000;
+    opacity:0;transition:opacity .2s;pointer-events:none;letter-spacing:1px;
+  }
+  .toast.show{opacity:1}
+
+  .tut-controls{background:var(--stone-0);border:2px solid var(--stone-3);padding:8px 10px;margin-bottom:10px;line-height:2}
+  .story-note{
+    background:var(--stone-0);border:2px dashed var(--torch-dim);
+    padding:12px;margin:10px 0;font-size:9px;color:var(--parch);line-height:1.9;
+  }
+  ul.clues{list-style:none;font-size:9px;line-height:1.9}
+  ul.clues li{margin-bottom:8px;padding-left:14px;position:relative}
+  ul.clues li::before{content:"◆";position:absolute;left:0;color:var(--gold)}
+
+  a.dl{color:var(--torch)}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="titlebar">
+    <h1>◆ VAULT OF ECHOES</h1>
+    <span class="sub">3 CHAMBERS · EXPLORE · COLLECT · FIGHT</span>
+  </div>
+
+  <div class="hud">
+    <span class="cell">CHAMBER <span class="val" id="hudLevel">1</span>/3</span>
+    <span class="cell" id="qaBadge" style="display:none;color:var(--danger)">● TEST BUILD</span>
+    <span class="cell">HP <span class="val" id="hudHP">3</span></span>
+    <span class="cell">PROGRESS <span class="val" id="hudProgress">0/7</span></span>
+    <span class="cell">KEY <span class="key" id="hudKey">✕</span></span>
+    <span class="cell">ROOMS <span class="val" id="hudRooms">0</span>/2</span>
+    <span class="cell">SCORE <span class="val" id="hudScore">0</span></span>
+    <span class="spacer"></span>
+    <span class="cell">BUGS <span class="val" id="hudBugs">0</span></span>
+    <button id="exportBtn" disabled>EXPORT LOG</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="game" width="100" height="100"></canvas>
+    <div class="toast" id="toast"></div>
+
+    <!-- Intro (story) -->
+    <div class="overlay show" id="loginOverlay">
+      <div class="card">
+        <h2>Player Registration</h2>
+        <p>Enter your information to begin the study session.</p>
+        <div style="display:flex;flex-direction:column;gap:10px;margin:12px 0;">
+          <label style="font-size:13px;color:#aab;">First Name
+            <input type="text" id="loginFirst" style="display:block;width:100%;margin-top:4px;padding:6px 8px;background:#1b2130;border:1px solid #39435a;color:#eef;border-radius:4px;font-size:14px;" autocomplete="off">
+          </label>
+          <label style="font-size:13px;color:#aab;">Last Initial
+            <input type="text" id="loginLastInit" maxlength="1" style="display:block;width:60px;margin-top:4px;padding:6px 8px;background:#1b2130;border:1px solid #39435a;color:#eef;border-radius:4px;font-size:14px;text-transform:uppercase;" autocomplete="off">
+          </label>
+          <label style="font-size:13px;color:#aab;">Student ID
+            <input type="text" id="loginStudentId" style="display:block;width:100%;margin-top:4px;padding:6px 8px;background:#1b2130;border:1px solid #39435a;color:#eef;border-radius:4px;font-size:14px;" autocomplete="off">
+          </label>
+        </div>
+        <p id="loginError" style="color:#e2554e;font-size:13px;display:none;">Please fill in all fields.</p>
+        <button class="btn" id="loginBtn">REGISTER</button>
+      </div>
+    </div>
+
+    <div class="overlay" id="introOverlay">
+      <div class="card">
+        <h2>The Vault of Echoes</h2>
+        <p><b>Wren</b> — your mentor, the village mapmaker — vanished three weeks ago. For decades, Wren's charts kept every traveler safe. When the disappearances started, Wren went into the vault beneath the old keep to map a way through. Nobody has seen Wren since.</p>
+        <p>You are Wren's apprentice. You stand at the vault's mouth with Wren's last words still in your ears: <i>"If I don't come back, don't follow me."</i> You're going in anyway.</p>
+        <p>Three chambers lie ahead. Somewhere inside, Wren left <b>journal pages</b> — find them all and you may learn what happened. <b>Hidden rooms</b>, <b>gems</b>, and <b>guarded trophies</b> reward those who explore thoroughly.</p>
+        <p><b>Guards</b> pace the corridors — each hit costs one of your <b>3 health points</b>. Press <b>Space</b> to swing your sword.</p>
+        <button class="btn" id="introNext">CONTINUE</button>
+      </div>
+    </div>
+
+    <!-- Tutorial (how to play) -->
+    <div class="overlay" id="tutOverlay">
+      <div class="card">
+        <h2>How to Play</h2>
+        <p><b>Controls</b></p>
+        <p class="tut-controls">
+          <span><b>Arrow keys</b> or <b>WASD</b> — Move</span><br>
+          <span><b>Space</b> — Swing sword</span><br>
+          <span><b>B</b> — Report a bug</span>
+        </p>
+        <p><b>Goal</b></p>
+        <p>Find the <b>key</b> in each chamber and reach the <b>exit door</b> to advance. There are 3 chambers total.</p>
+        <p><b>Scoring — max 4,200 points</b></p>
+        <p>Collect <b>gems</b> — 3 appear per level, blinking in and out of the corridors. Grab them before they vanish. Defeat <b>enemies</b> to earn a trophy. Points scale with each chamber, so later levels are worth more.</p>
+        <p><b>Beware: this game contains bugs!</b></p>
+        <p>Some things may not work as expected. When you encounter a bug, press <b>B</b> to open the bug report form. Describe what happened, select a category, and rate how much the bug impacted your enjoyment. Your reports are part of the study — report every bug you find.</p>
+        <button class="btn" id="startBtn">ENTER THE VAULT</button>
+      </div>
+    </div>
+
+    <!-- Treasure / clue popup -->
+    <div class="overlay" id="clueOverlay">
+      <div class="card">
+        <h2 id="clueTitle">Treasure Found</h2>
+        <div class="story-note" id="clueText"></div>
+        <button class="btn" id="clueBtn">CONTINUE</button>
+      </div>
+    </div>
+
+    <!-- Level complete -->
+    <div class="overlay" id="levelOverlay">
+      <div class="card">
+        <h2 id="levelTitle">Chamber Cleared</h2>
+        <p id="levelText"></p>
+        <button class="btn" id="levelBtn">DESCEND</button>
+      </div>
+    </div>
+
+    <!-- Bug report -->
+    <div class="overlay" id="bugOverlay">
+      <div class="card">
+        <h2>Report a Bug</h2>
+        <div class="ctx" id="bugCtx"></div>
+        <label>Category</label>
+        <select id="bugCategory">
+          <option value="Movement/Collision">Movement / Collision</option>
+          <option value="Rendering/Graphics">Rendering / Graphics</option>
+          <option value="Treasure/Item">Treasure / Item</option>
+          <option value="Exit/Progression">Exit / Progression</option>
+          <option value="UI/HUD">UI / HUD</option>
+          <option value="Other">Other</option>
+        </select>
+        <label>What happened?</label>
+        <textarea id="bugDesc" placeholder="Describe the bug in your own words..."></textarea>
+        <label>Impact on your enjoyment</label>
+        <div class="sev" id="sevGroup">
+          <button data-sev="1"><span class="n">1</span>Very little</button>
+          <button data-sev="2"><span class="n">2</span>Little</button>
+          <button data-sev="3"><span class="n">3</span>Moderate</button>
+          <button data-sev="4"><span class="n">4</span>High</button>
+          <button data-sev="5"><span class="n">5</span>Extremely high</button>
+        </div>
+        <div class="sevhint" id="sevHint"></div>
+        <div class="row">
+          <button class="btn" id="bugSubmit" disabled>SUBMIT REPORT</button>
+          <button class="btn ghost" id="bugCancel">CANCEL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Win -->
+    <div class="overlay" id="winOverlay">
+      <div class="card">
+        <h2 id="winTitle">You Escaped</h2>
+        <p id="winNarrative"></p>
+        <p class="quiet" id="winNoteCount"></p>
+        <ul class="clues" id="winClues"></ul>
+        <p class="quiet" id="winStats"></p>
+        <p class="quiet" id="winBranches"></p>
+        <div class="row">
+          <button class="btn" id="winExport">EXPORT BUG LOG</button>
+          <button class="btn ghost" id="winReplay">PLAY AGAIN</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game over -->
+    <div class="overlay" id="overOverlay">
+      <div class="card">
+        <h2>Game Over</h2>
+        <p id="overText">A guard caught you in the dark. The vault keeps what it is given.</p>
+        <div class="row">
+          <button class="btn" id="overRetry">RETRY CHAMBER</button>
+          <button class="btn ghost" id="overRestart">RESTART RUN</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <b>MOVE</b> Arrow keys / WASD &nbsp;&nbsp; <b>SPACE</b> swing sword &nbsp;&nbsp; <b>B</b> report a bug &nbsp;&nbsp; <b>ESC</b> close dialog
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   VAULT OF ECHOES — Study Build
+   Single-file HTML5 canvas maze game with in-game bug reporting
+   and node-level progression tracking for the BIAS study.
+   ============================================================ */
+
+// ---------- seeded RNG (mulberry32) ----------
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ---------- chamber definitions (cells, not tiles) ----------
+const CHAMBERS = [
+  { seed: 1207, cols: 8,  rows: 7  },
+  { seed: 4519, cols: 11, rows: 9  },
+  { seed: 9021, cols: 14, rows: 11 },
+];
+
+// Spine chests: 1 key (visible) + 2 notes (hidden, revealed by probe).
+const SPINE_CHESTS_PER_LEVEL = 3;
+
+// Tile types in the grid.
+const TILE_WALL = 1;
+const TILE_FLOOR = 0;
+const TILE_PASSAGE = 2;  // hidden room entrance — looks like wall, walkable
+const GEMS_PER_LEVEL = 3;
+const GEM_VISIBLE_MS = 2500;  // gems stay visible for 2.5 seconds then teleport
+const GEM_FLEE_DIST = 3;      // gems flee when player is within this Manhattan distance
+const GEM_COLORS = ["ruby","emerald","sapphire"];
+const GEM_POINTS = [100, 150, 200]; // escalating value per gem
+
+// Wren's journal fragments — 12 clues that together reveal what happened.
+// The player must collect all notes across all 3 levels to piece together
+// the full story: Wren came to map the vault, discovered it was alive,
+// chose to stay to keep it from trapping others, and left the map behind.
+
+// Spine note chests (2 per level = 6 total). Found by probing dead ends.
+const SPINE_NOTES = [
+  [ // Level 1
+    "Wren's journal: \"The village asked me to chart these tunnels after the third disappearance. I told them I would be back by morning.\"",
+    "Wren's journal: \"My apprentice would laugh at me — I always said 'never map alone.' I can hear my own advice echoing off these walls.\"",
+  ],
+  [ // Level 2
+    "Wren's journal: \"The walls shifted behind me. I am certain now: this vault rearranges itself. My maps from yesterday are already wrong.\"",
+    "Wren's journal: \"I found old bones near a locked door. Someone else's torch. They got this far, too. They did not get further.\"",
+  ],
+  [ // Level 3
+    "Wren's journal: \"I understand now. The vault does not trap people — it tests them. Every room is a question. Every key is an answer.\"",
+    "Wren's journal: \"I could leave. The final door is open. But if I go, the vault resets and the next person walks in blind. So I am leaving these notes instead.\"",
+  ],
+];
+
+// Hidden room notes — crack rooms (1 per level). Found by walking into cracked walls.
+const ROOM_NOTES_CRACK = [
+  "Wren's journal: \"I pressed my hand against a crack in the wall and it gave way. Behind it, a small chamber with air that tasted old. The vault has rooms it hides even from itself.\"",
+  "Wren's journal: \"More hidden rooms. I think these are the vault's mistakes — places it forgot to seal. I am mapping every one. Mistakes are how you find the truth.\"",
+  "Wren's journal: \"The deepest hidden room had carvings on the floor. A name I could not read, and below it: 'I stayed so you could leave.' Someone chose this before me.\"",
+];
+
+// Hidden room notes — audio rooms (1 per level). Found by walking over humming tiles 3 times.
+const ROOM_NOTES_AUDIO = [
+  "Wren's journal: \"The stones hum where they are thin. I walked over the same tile three times before the wall opened. The vault listens to footsteps.\"",
+  "Wren's journal: \"Every chamber has a frequency — a tone the walls respond to. Walk with patience and the vault reveals what it keeps hidden from those who rush.\"",
+  "Wren's journal: \"The final humming stone played a note I recognized. It was the lullaby my mother sang. The vault knows things it should not know. I am not afraid. I am awed.\"",
+];
+
+const KEY_TEXT = "An iron key, warm from the dark. This chamber's door will open now.";
+
+const enemyCountFor = (cols, rows) => Math.max(1, Math.round((cols*rows)/28));
+const ENEMY_INTERVAL = 340;
+const SWORD_RANGE = 1;
+const SWORD_COOLDOWN = 260;
+const SWORD_FLASH = 200;
+
+const BONUS_POINTS = 250;  // multiplied by chamber number for both chest bonus and trophy
+const BRUTE_HP = 3;
+const BRUTE_SHOOT_CD = 1200;  // ms between boss shots
+const BRUTE_AIM_DELAY = 400;  // ms of glow warning before first shot
+const PROJECTILE_SPEED = 180; // ms per tile
+
+// ---------- QA bug injection (per chamber) ----------
+// Keywords: chest, sword, boss, door, room, gem  (or "all").
+//   per chamber:  ?l1=wall,gem&l2=all&l3=boss
+//   all chambers: ?bugs=wall,gem,boss,room,key   or   ?bugs=all
+//
+// What each flag does:
+//   wallClip   (wall)  - player can walk through one wall segment (entry node)
+//   phantomGem (gem)   - 3rd gem counts but gem keeps respawning (chest/achiever node)
+//   undeadBoss (boss)  - boss HP→0, kill registers, but boss stays alive (boss/killer node)
+//   missingNote (room) - hidden room entered, pedestal touched, note never appears (room/explorer node)
+//   stuckKey   (key)   - decoy key chest shows key but can't pick up; real chest works (key node)
+const BUGS = {
+  1: { wallClip:false, phantomGem:false, undeadBoss:false, missingNote:false, stuckKey:false },
+  2: { wallClip:false, phantomGem:false, undeadBoss:false, missingNote:false, stuckKey:false },
+  3: { wallClip:false, phantomGem:false, undeadBoss:false, missingNote:false, stuckKey:false },
+};
+(function applyBugQuery(){
+  try {
+    const p = new URLSearchParams(location.search);
+    const setFlags = (lvl, list) => {
+      const s = list.map(x=>x.trim()).filter(Boolean);
+      const all = s.includes("all") || s.includes("1");
+      if(all || s.includes("wall"))  lvl.wallClip    = true;
+      if(all || s.includes("gem"))   lvl.phantomGem  = true;
+      if(all || s.includes("boss"))  lvl.undeadBoss  = true;
+      if(all || s.includes("room"))  lvl.missingNote = true;
+      if(all || s.includes("key"))   lvl.stuckKey    = true;
+    };
+    const g = p.get("bugs");
+    if(g){ const list = g.toLowerCase().split(","); [1,2,3].forEach(l => setFlags(BUGS[l], list)); }
+    [1,2,3].forEach(l => {
+      const v = p.get("l"+l);
+      if(v) setFlags(BUGS[l], v.toLowerCase().split(","));
+    });
+  } catch(e){}
+})();
+const activeBugsForLevel = n => { const b = BUGS[n] || {}; return Object.keys(b).filter(k => b[k]); };
+const anyBugConfigured = () => [1,2,3].some(l => activeBugsForLevel(l).length > 0);
+const SHOW_QA_BADGE = true;
+
+// BIAS-anchored severity hints
+const SEV_HINT = {
+  1:"Very little impact on my enjoyment.",
+  2:"Little impact on my enjoyment.",
+  3:"Moderate impact on my enjoyment.",
+  4:"High impact on my enjoyment.",
+  5:"Extremely high impact on my enjoyment.",
+};
+
+// ---------- maze generation (recursive backtracker) ----------
+function generateMaze(cols, rows, seed){
+  const rnd = mulberry32(seed);
+  const cells = Array.from({length:rows}, ()=>Array.from({length:cols}, ()=>({v:false,N:false,S:false,E:false,W:false})));
+  const stack = [[0,0]];
+  cells[0][0].v = true;
+  const dirs = [["N",0,-1],["S",0,1],["E",1,0],["W",-1,0]];
+  const opp = {N:"S",S:"N",E:"W",W:"E"};
+  while(stack.length){
+    const [cx,cy] = stack[stack.length-1];
+    const nbrs = [];
+    for(const [d,dx,dy] of dirs){
+      const nx=cx+dx, ny=cy+dy;
+      if(nx>=0&&nx<cols&&ny>=0&&ny<rows&&!cells[ny][nx].v) nbrs.push([d,nx,ny]);
+    }
+    if(nbrs.length===0){ stack.pop(); continue; }
+    const [d,nx,ny] = nbrs[Math.floor(rnd()*nbrs.length)];
+    cells[cy][cx][d]=true;
+    cells[ny][nx][opp[d]]=true;
+    cells[ny][nx].v=true;
+    stack.push([nx,ny]);
+  }
+  const TW = cols*2+1, TH = rows*2+1;
+  const grid = Array.from({length:TH}, ()=>Array(TW).fill(TILE_WALL));
+  for(let cy=0;cy<rows;cy++){
+    for(let cx=0;cx<cols;cx++){
+      const tx=cx*2+1, ty=cy*2+1;
+      grid[ty][tx]=TILE_FLOOR;
+      if(cells[cy][cx].N) grid[ty-1][tx]=TILE_FLOOR;
+      if(cells[cy][cx].S) grid[ty+1][tx]=TILE_FLOOR;
+      if(cells[cy][cx].E) grid[ty][tx+1]=TILE_FLOOR;
+      if(cells[cy][cx].W) grid[ty][tx-1]=TILE_FLOOR;
+    }
+  }
+  return { grid, TW, TH, cols, rows, cells };
+}
+
+function bfs(grid, sx, sy){
+  const H=grid.length, W=grid[0].length;
+  const dist=Array.from({length:H},()=>Array(W).fill(-1));
+  const par=Array.from({length:H},()=>Array(W).fill(null));
+  const q=[[sx,sy]]; dist[sy][sx]=0;
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  while(q.length){
+    const [x,y]=q.shift();
+    for(const [dx,dy] of dirs){
+      const nx=x+dx, ny=y+dy;
+      if(nx<0||ny<0||nx>=W||ny>=H) continue;
+      if(grid[ny][nx]===TILE_WALL||dist[ny][nx]!==-1) continue;
+      dist[ny][nx]=dist[y][x]+1; par[ny][nx]=[x,y]; q.push([nx,ny]);
+    }
+  }
+  return {dist, par};
+}
+
+function planChamber(maze){
+  const {grid, TW, TH} = maze;
+  const startTx=1, startTy=1;
+  const {dist, par} = bfs(grid, startTx, startTy);
+
+  // exit = farthest floor tile from start
+  let ex=startTx, ey=startTy, best=-1;
+  for(let y=0;y<TH;y++)for(let x=0;x<TW;x++){
+    if(grid[y][x]===TILE_FLOOR && dist[y][x]>best){best=dist[y][x];ex=x;ey=y;}
+  }
+
+  // tiles on start->exit shortest path
+  const onPath=new Set();
+  let cur=[ex,ey];
+  while(cur){ onPath.add(cur[0]+","+cur[1]); cur=par[cur[1]][cur[0]]; }
+
+  // dead ends = floor tiles with exactly one floor neighbour
+  const deadEnds=[];
+  for(let y=0;y<TH;y++)for(let x=0;x<TW;x++){
+    if(grid[y][x]!==TILE_FLOOR) continue;
+    let n=0;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])
+      if(grid[y+dy]&&grid[y+dy][x+dx]===TILE_FLOOR) n++;
+    if(n===1) deadEnds.push([x,y]);
+  }
+
+  const isBlocked = (x,y) => (x===startTx&&y===startTy) || (x===ex&&y===ey);
+  const chDist = (a,b) => Math.max(Math.abs(a[0]-b[0]), Math.abs(a[1]-b[1]));
+
+  // Pool of dead ends sorted farthest first, off the main path preferred
+  let pool = deadEnds.filter(([x,y]) => !isBlocked(x,y) && !onPath.has(x+","+y));
+  if(pool.length < SPINE_CHESTS_PER_LEVEL + 2){
+    pool = deadEnds.filter(([x,y]) => !isBlocked(x,y));
+  }
+  pool.sort((a,b) => dist[b[1]][b[0]] - dist[a[1]][a[0]]);
+
+  // Pick dead ends for: 3 spine chests + 1 boss arena = 4 spots needed
+  const usedSpots = [];
+  function pickSpot(minDist){
+    for(const cand of pool){
+      if(usedSpots.some(c => chDist(c, cand) < (minDist||3))) continue;
+      usedSpots.push(cand);
+      return cand;
+    }
+    for(const cand of pool){
+      if(!usedSpots.some(c => c[0]===cand[0] && c[1]===cand[1])){
+        usedSpots.push(cand);
+        return cand;
+      }
+    }
+    return null;
+  }
+
+  // 3 spine chest spots
+  const chestTiles = [];
+  for(let i=0; i<SPINE_CHESTS_PER_LEVEL; i++){
+    const s = pickSpot(3);
+    if(s) chestTiles.push(s);
+  }
+
+  // Boss arena spot — must NOT be on shortest path
+  let bruteSpot = null;
+  for(const cand of pool){
+    if(usedSpots.some(c => c[0]===cand[0] && c[1]===cand[1])) continue;
+    if(onPath.has(cand[0]+","+cand[1])) continue;
+    if(usedSpots.every(c => chDist(c, cand) >= 3)){
+      bruteSpot = cand;
+      usedSpots.push(cand);
+      break;
+    }
+  }
+  if(!bruteSpot){
+    for(const cand of pool){
+      if(usedSpots.some(c => c[0]===cand[0] && c[1]===cand[1])) continue;
+      if(!onPath.has(cand[0]+","+cand[1])){
+        bruteSpot = cand;
+        usedSpots.push(cand);
+        break;
+      }
+    }
+  }
+
+  // Compute trigger tiles for chests (approach neighbour closest to start)
+  function triggerFor(tx, ty){
+    let trigX=tx, trigY=ty, bd=Infinity;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=tx+dx, ny=ty+dy;
+      if(grid[ny] && grid[ny][nx]===TILE_FLOOR && dist[ny][nx]>=0 && dist[ny][nx]<bd){
+        bd=dist[ny][nx]; trigX=nx; trigY=ny;
+      }
+    }
+    return { tx, ty, trigX, trigY };
+  }
+
+  const chestSpots = chestTiles.map(([tx,ty]) => triggerFor(tx, ty));
+
+  // Boss/brute placement
+  let brute = null;
+  if(bruteSpot){
+    const [bx,by] = bruteSpot;
+    let ax=bx, ay=by, bd=Infinity;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=bx+dx, ny=by+dy;
+      if(grid[ny] && grid[ny][nx]===TILE_FLOOR && dist[ny][nx]>=0 && dist[ny][nx]<bd){
+        bd=dist[ny][nx]; ax=nx; ay=ny;
+      }
+    }
+    brute = { x:ax, y:ay, dx:ax-bx, dy:ay-by, trophyX:bx, trophyY:by };
+  }
+
+  // Hidden rooms (Explorer branch): 2 per level.
+  //   Room 1 ("crack") — 3-deep pocket (passage+mid+room), crack hint, walkable.
+  //   Room 2 ("audio") — 2-deep pocket (passage+room), sealed until 3 trigger walks.
+  const rnd = mulberry32(maze.cols * maze.rows);
+
+  // Scan for wall pockets at two depths
+  const deep3 = []; // 3-deep: passage, mid wall, room
+  const deep2 = []; // 2-deep: passage, room directly behind
+  for(let y=2; y<TH-2; y++){
+    for(let x=2; x<TW-2; x++){
+      if(grid[y][x] !== TILE_WALL) continue;
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const fx=x-dx, fy=y-dy; // floor approach
+        if(fx<0||fy<0||fx>=TW||fy>=TH) continue;
+        if(grid[fy][fx]!==TILE_FLOOR) continue;
+        const w1x=x+dx, w1y=y+dy;
+        if(w1x<1||w1y<1||w1x>=TW-1||w1y>=TH-1) continue;
+        if(grid[w1y][w1x]!==TILE_WALL) continue;
+        // 2-deep: room directly behind passage (at w1)
+        const px2=dy, py2=dx;
+        const perpOk2 = (!grid[w1y+py2] || grid[w1y+py2][w1x+px2]!==TILE_FLOOR)
+                      && (!grid[w1y-py2] || grid[w1y-py2][w1x-px2]!==TILE_FLOOR);
+        if(perpOk2){
+          deep2.push({passX:x, passY:y, floorX:fx, floorY:fy,
+                      roomX:w1x, roomY:w1y, dx, dy, depth:2});
+        }
+        // 3-deep: mid wall + room behind that
+        const w2x=x+2*dx, w2y=y+2*dy;
+        if(w2x<1||w2y<1||w2x>=TW-1||w2y>=TH-1) continue;
+        if(grid[w2y][w2x]!==TILE_WALL) continue;
+        const px3=dy, py3=dx;
+        const perpOk3 = (!grid[w2y+py3] || grid[w2y+py3][w2x+px3]!==TILE_FLOOR)
+                      && (!grid[w2y-py3] || grid[w2y-py3][w2x-px3]!==TILE_FLOOR);
+        if(perpOk3){
+          deep3.push({passX:x, passY:y, floorX:fx, floorY:fy,
+                      roomX:w2x, roomY:w2y, dx, dy, depth:3});
+        }
+      }
+    }
+  }
+
+  function shuffle(arr){
+    for(let i=arr.length-1; i>0; i--){
+      const j=Math.floor(rnd()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+  }
+  shuffle(deep3); shuffle(deep2);
+
+  const hiddenRooms = [];
+  const usedPassages = new Set();
+
+  // Pick crack room from 3-deep candidates (preferred) or 2-deep fallback
+  function pickRoom(pool){
+    for(const wc of pool){
+      if(usedPassages.has(wc.passX+","+wc.passY)) continue;
+      const farEnough = usedSpots.every(s => chDist(s, [wc.passX, wc.passY]) >= 2)
+        && hiddenRooms.every(h => chDist([h.passX, h.passY], [wc.passX, wc.passY]) >= 3);
+      if(farEnough){ usedPassages.add(wc.passX+","+wc.passY); return wc; }
+    }
+    // Relax distance
+    for(const wc of pool){
+      if(usedPassages.has(wc.passX+","+wc.passY)) continue;
+      usedPassages.add(wc.passX+","+wc.passY);
+      return wc;
+    }
+    return null;
+  }
+
+  // Room 1 (crack): prefer 3-deep, fallback 2-deep
+  const crack = pickRoom(deep3) || pickRoom(deep2);
+  if(crack){
+    crack.type = "crack";
+    hiddenRooms.push(crack);
+    grid[crack.passY][crack.passX] = TILE_PASSAGE;
+    if(crack.depth === 3){
+      const midX = crack.passX + crack.dx, midY = crack.passY + crack.dy;
+      grid[midY][midX] = TILE_FLOOR;
+    }
+    grid[crack.roomY][crack.roomX] = TILE_FLOOR;
+  }
+
+  // Room 2 (audio): accept either depth, prefer 2-deep since it's simpler
+  const audio = pickRoom(deep2) || pickRoom(deep3);
+  if(audio){
+    audio.type = "audio";
+    hiddenRooms.push(audio);
+    // Passage stays TILE_WALL — opens at runtime after 3 trigger walks
+    if(audio.depth === 3){
+      const midX = audio.passX + audio.dx, midY = audio.passY + audio.dy;
+      grid[midY][midX] = TILE_FLOOR;
+    }
+    grid[audio.roomY][audio.roomX] = TILE_FLOOR;
+    audio.triggerX = audio.floorX;
+    audio.triggerY = audio.floorY;
+  }
+
+  return { startTx, startTy, ex, ey, chestSpots, brute, hiddenRooms, dist };
+}
+
+// ---------- sprites (8x8) ----------
+const PAL = {
+  h:"#8a3b2a", s:"#e6b48a", e:"#141821", b:"#3f6bb0", l:"#5b3d24",
+  L:"#a06a3a", Y:"#f6d24b", W:"#6e4728", K:"#f6d24b",
+  d:"#4a5470", w:"#6e4f2e", k:"#f6d24b", g:"#5fbf7d",
+  o:"#c0392b", i:"#f2e04a",
+  u:"#7d3cae", c:"#35d0e6", C:"#c9f7ff",
+  t:"#d4a017", T:"#ffe066", // trophy
+  p:"#a08060", P:"#e8dcc0", // pedestal
+  R:"#e2554e", r:"#ff8888", // ruby
+  G:"#3da868", F:"#7fffaa", // emerald
+  B:"#4a7de0", A:"#88bbff", // sapphire
+};
+const SPR = {
+  player:[
+    "..hhhh..",
+    ".hhhhhh.",
+    "..ssss..",
+    "..sese..",
+    "..ssss..",
+    ".bbbbbb.",
+    ".b.bb.b.",
+    "..l..l..",
+  ],
+  chest:[
+    "........",
+    ".LLLLLL.",
+    ".LYYYYL.",
+    ".LLLLLL.",
+    ".WWWWWW.",
+    ".WWKKWW.",
+    ".WWWWWW.",
+    "........",
+  ],
+  doorLocked:[
+    ".dddddd.",
+    "dwwwwwwd",
+    "dwwwwwwd",
+    "dwwwwwwd",
+    "dwwkkwwd",
+    "dwwkkwwd",
+    "dwwwwwwd",
+    "dwwwwwwd",
+  ],
+  doorOpen:[
+    ".gggggg.",
+    "gwwwwwwg",
+    "gw....wg",
+    "gw....wg",
+    "gw....wg",
+    "gw....wg",
+    "gw....wg",
+    "gwwwwwwg",
+  ],
+  enemy:[
+    "..oooo..",
+    ".oooooo.",
+    ".oiooio.",
+    ".oooooo.",
+    ".o.oo.o.",
+    ".oooooo.",
+    ".oo..oo.",
+    ".o....o.",
+  ],
+  brute:[
+    "u.u..u.u",
+    ".uuuuuu.",
+    ".uiuuiu.",
+    ".uuuuuu.",
+    ".u.uu.u.",
+    ".uuuuuu.",
+    ".uu..uu.",
+    "u.u..u.u",
+  ],
+  trophy:[
+    "..tTTt..",
+    ".tTTTTt.",
+    ".tTTTTt.",
+    "..tTTt..",
+    "...tt...",
+    "...tt...",
+    "..tttt..",
+    ".tttttt.",
+  ],
+  pedestal:[
+    "........",
+    "..PPPP..",
+    "..PppP..",
+    "..PppP..",
+    "..PPPP..",
+    "...pp...",
+    "..pppp..",
+    ".pppppp.",
+  ],
+  gemRuby:[
+    "........",
+    "...rr...",
+    "..rRRr..",
+    ".rRRRRr.",
+    ".rRRRRr.",
+    "..rRRr..",
+    "...rr...",
+    "........",
+  ],
+  gemEmerald:[
+    "........",
+    "...FF...",
+    "..FGGF..",
+    ".FGGGFF.",
+    ".FGGGGF.",
+    "..FGGF..",
+    "...FF...",
+    "........",
+  ],
+  gemSapphire:[
+    "........",
+    "...AA...",
+    "..ABBA..",
+    ".ABBBBA.",
+    ".ABBBBA.",
+    "..ABBA..",
+    "...AA...",
+    "........",
+  ],
+};
+function drawSprite(ctx, spr, px, py, size){
+  const p = size/8;
+  for(let y=0;y<8;y++){
+    const row=spr[y];
+    for(let x=0;x<8;x++){
+      const c=row[x];
+      if(c==="."||c===" ") continue;
+      ctx.fillStyle=PAL[c]||"#fff";
+      ctx.fillRect(Math.floor(px+x*p), Math.floor(py+y*p), Math.ceil(p), Math.ceil(p));
+    }
+  }
+}
+
+// ---------- game state ----------
+const cv = document.getElementById("game");
+const ctx = cv.getContext("2d");
+const TILE = 22;
+
+const state = {
+  levelIdx:0, maze:null, plan:null,
+  px:1, py:1,
+  chests:[],
+  keyFound:false,
+  notesFound:[],
+  paused:true, bugs:[],
+  keys:new Set(), lastMove:0,
+  moveHist:[],
+  enemies:[], alive:true,
+  lastEnemyMove:0, swingUntil:0, lastSwing:0, swingTiles:[],
+  bugsThisLevel:{},
+  score:0,
+  // Branch state
+  trophy:null,              // {x,y,collected} — appears after brute dies
+  hiddenRooms:[],           // [{type,entered,note,passX,passY,...}] — 2 per level
+  gems:[],                  // [{x,y,color,collected,spawnTime}] — teleporting gems
+  bruteAlive:true,          // is the brute still alive this level?
+  // Progression tracking
+  progression: {
+    completions:[],   // [{node, timestamp, elapsed_ms}]
+    encounters:[],    // [{bug_id, node, reported, time_to_report_ms}]
+    branchOutcomes:{},
+    branchAttempts:{}, // tracks "attempted" evidence per branch node
+    startTime:0,
+    enemiesKilled:0,  // regular enemies killed this level
+    bossKilled:false,  // boss killed this level
+    swordSwung:false,  // swung sword near enemies this level
+    levelEngagement:{}, // per-level engagement tiers: {l1:{explorer:X,achiever:X,killer:X}, ...}
+  },
+  sessionId:null, sessionStart:null, playerId:null, playerName:null,
+};
+
+// ---------- progression tracker ----------
+function nodeId(phase){ return "l"+(state.levelIdx+1)+"."+phase; }
+
+function completeNode(nid){
+  if(state.progression.completions.some(c => c.node === nid)) return;
+  state.progression.completions.push({
+    node: nid,
+    timestamp: new Date().toISOString(),
+    elapsed_ms: Date.now() - state.progression.startTime,
+  });
+  updateHUD();
+}
+
+function completedNodes(){
+  return state.progression.completions.map(c => c.node);
+}
+
+function completedThisLevel(){
+  const prefix = "l"+(state.levelIdx+1)+".";
+  return state.progression.completions.filter(c => c.node.startsWith(prefix)).length;
+}
+
+function markBranchOutcome(nid, outcome){
+  if(outcome === "attempted" && state.progression.branchOutcomes[nid] === "found") return;
+  state.progression.branchOutcomes[nid] = outcome;
+}
+
+function finalizeBranchOutcomes(){
+  const lvl = state.levelIdx + 1;
+  for(const phase of ["room","chest","boss"]){
+    const nid = "l"+lvl+"."+phase;
+    if(!state.progression.branchOutcomes[nid]){
+      state.progression.branchOutcomes[nid] = "never_approached";
+    }
+  }
+  if(!state.progression.roomsFound) state.progression.roomsFound = {};
+  state.progression.roomsFound["l"+lvl] = {
+    found: state.hiddenRooms.filter(r=>r.entered).length,
+    total: state.hiddenRooms.length,
+    types: state.hiddenRooms.map(r=>({type:r.type, entered:r.entered, noteCollected:r.note.collected})),
+  };
+
+  // Compute engagement tier per type for this level
+  const roomsEntered = state.hiddenRooms.filter(r => r.entered).length;
+  const wallBumpsNearRoom = state.progression.branchOutcomes["l"+lvl+".room"] === "attempted";
+  let explorerTier = 0;
+  if(roomsEntered >= 2) explorerTier = 3;
+  else if(roomsEntered === 1) explorerTier = 2;
+  else if(wallBumpsNearRoom) explorerTier = 1;
+
+  const gemsCollected = state.gems.filter(g => g.collected).length;
+  let achieverTier = Math.min(gemsCollected, 3);
+
+  let killerTier = 0;
+  if(state.progression.bossKilled) killerTier = 3;
+  else if(state.progression.enemiesKilled > 0) killerTier = 2;
+  else if(state.progression.swordSwung) killerTier = 1;
+
+  state.progression.levelEngagement["l"+lvl] = {
+    explorer: explorerTier,
+    achiever: achieverTier,
+    killer: killerTier,
+  };
+}
+
+function classifyPlayerType(){
+  const totals = {explorer:0, achiever:0, killer:0};
+  for(let lvl=1; lvl<=3; lvl++){
+    const eng = state.progression.levelEngagement["l"+lvl];
+    if(!eng) continue;
+    totals.explorer += eng.explorer;
+    totals.achiever += eng.achiever;
+    totals.killer += eng.killer;
+  }
+  const max = Math.max(totals.explorer, totals.achiever, totals.killer);
+  const tied = Object.keys(totals).filter(t => totals[t] === max);
+  let dominant;
+  if(tied.length === 1){
+    dominant = tied[0];
+  } else {
+    // Tiebreaker: earliest first completion of a branch node for tied types
+    const branchPhase = {explorer:"room", achiever:"chest", killer:"boss"};
+    let earliest = null, earliestType = tied[0];
+    for(const t of tied){
+      const phase = branchPhase[t];
+      const comp = state.progression.completions.find(c => c.node.endsWith("."+phase));
+      if(comp){
+        if(!earliest || comp.elapsed_ms < earliest){
+          earliest = comp.elapsed_ms;
+          earliestType = t;
+        }
+      }
+    }
+    dominant = earliestType;
+  }
+  return {dominant, totals, tiebroken: tied.length > 1};
+}
+
+const el = id => document.getElementById(id);
+const overlays = {
+  login:el("loginOverlay"), intro:el("introOverlay"), tut:el("tutOverlay"), clue:el("clueOverlay"),
+  level:el("levelOverlay"), bug:el("bugOverlay"), win:el("winOverlay"),
+  over:el("overOverlay"),
+};
+function showOverlay(name){
+  Object.values(overlays).forEach(o=>o.classList.remove("show"));
+  if(name){ overlays[name].classList.add("show"); state.paused=true; }
+  else state.paused=false;
+}
+
+function loadLevel(i){
+  const c = CHAMBERS[i];
+  state.levelIdx = i;
+  state.maze = generateMaze(c.cols, c.rows, c.seed);
+  state.plan = planChamber(state.maze);
+  state.px = state.plan.startTx;
+  state.py = state.plan.startTy;
+  state.keyFound = false;
+  state.moveHist = [[state.px, state.py]];
+  state.progression.enemiesKilled = 0;
+  state.progression.bossKilled = false;
+  state.progression.swordSwung = false;
+
+  // Spine chests: 1 key (visible!) + 2 notes (hidden, each unique)
+  const rnd = mulberry32(c.seed ^ 0x5f3759df);
+  const spots = state.plan.chestSpots;
+  const keyIndex = Math.floor(rnd() * spots.length);
+  const lvlNotes = SPINE_NOTES[i];
+  let noteIdx = 0;
+  state.chests = spots.map((s, idx) => {
+    const base = {tx:s.tx, ty:s.ty, trigX:s.trigX, trigY:s.trigY, revealed:false, collected:false, branch:null};
+    if(idx === keyIndex) return {...base, type:"key", content:KEY_TEXT, revealed:true};
+    return {...base, type:"note", content:lvlNotes[noteIdx++]};
+  });
+
+  // Achiever gems (teleporting collectibles)
+  state.gems = GEM_COLORS.map((color, idx) => ({
+    color, idx, x:-1, y:-1, collected:false, spawnTime:0,
+  }));
+
+  // Enemies
+  state.enemies = spawnEnemies(state.maze, state.plan, enemyCountFor(c.cols, c.rows), c.seed);
+
+  // Boss brute (decoupled from jewel — the trophy appears where the brute dies)
+  const pl = state.plan;
+  state.trophy = null;
+  state.bruteAlive = false;
+  if(pl.brute){
+    state.enemies = state.enemies.filter(e => !(e.x===pl.brute.x && e.y===pl.brute.y));
+    state.enemies.push({x:pl.brute.x, y:pl.brute.y, dx:pl.brute.dx, dy:pl.brute.dy, hp:BRUTE_HP, tough:true});
+    state.bruteAlive = true;
+  }
+
+  // Hidden rooms (Explorer branch) — 2 per level
+  const noteContents = [ROOM_NOTES_CRACK[i], ROOM_NOTES_AUDIO[i]];
+  state.hiddenRooms = state.plan.hiddenRooms.map((hr, idx) => ({
+    type: hr.type,
+    entered: false,
+    opened: hr.type === "crack", // crack rooms start open; audio rooms start sealed
+    revealed: false, // true after X is pressed — controls visual marker
+    passX: hr.passX, passY: hr.passY,
+    roomX: hr.roomX, roomY: hr.roomY,
+    floorX: hr.floorX, floorY: hr.floorY,
+    dx: hr.dx, dy: hr.dy,
+    triggerX: hr.triggerX || 0, triggerY: hr.triggerY || 0,
+    triggerCount: 0,
+    note: { x: hr.roomX, y: hr.roomY, content: noteContents[idx], collected: false },
+  }));
+
+  state.alive = true;
+  state.hp = 3;
+  state.iFrameUntil = 0;
+  state.projectiles = [];
+  state.lastEnemyMove = 0;
+  state.swingUntil = 0;
+  state.lastSwing = 0;
+
+  // Injected defects
+  state.bugsThisLevel = BUGS[i+1] || {};
+  state.wallClipTile = null;
+  if(state.bugsThisLevel.wallClip){
+    const g = state.maze.grid;
+    const rng = mulberry32(c.seed ^ 0xBEEF);
+    const candidates = [];
+    for(let y=1;y<state.maze.TH-1;y++){
+      for(let x=1;x<state.maze.TW-1;x++){
+        if(g[y][x]!==TILE_WALL) continue;
+        let floorNeighbors = 0;
+        if(g[y-1][x]===TILE_FLOOR) floorNeighbors++;
+        if(g[y+1][x]===TILE_FLOOR) floorNeighbors++;
+        if(g[y][x-1]===TILE_FLOOR) floorNeighbors++;
+        if(g[y][x+1]===TILE_FLOOR) floorNeighbors++;
+        if(floorNeighbors >= 2) candidates.push({x,y});
+      }
+    }
+    if(candidates.length){
+      state.wallClipTile = candidates[Math.floor(rng()*candidates.length)];
+    }
+  }
+  if(state.bugsThisLevel.undeadBoss){
+    const boss = state.enemies.find(e => e.tough);
+    if(boss) boss.buggyUndead = true;
+  }
+  if(state.bugsThisLevel.stuckKey){
+    const rng = mulberry32(c.seed ^ 0xDEAD);
+    const g = state.maze.grid;
+    const deadEnds = [];
+    for(let y=1;y<state.maze.TH-1;y++){
+      for(let x=1;x<state.maze.TW-1;x++){
+        if(g[y][x]!==TILE_FLOOR) continue;
+        if(x===state.maze.sx&&y===state.maze.sy) continue;
+        if(x===state.maze.ex&&y===state.maze.ey) continue;
+        if(state.chests.some(ch=>ch.tx===x&&ch.ty===y)) continue;
+        let n=0;
+        if(g[y-1][x]===TILE_FLOOR) n++;
+        if(g[y+1][x]===TILE_FLOOR) n++;
+        if(g[y][x-1]===TILE_FLOOR) n++;
+        if(g[y][x+1]===TILE_FLOOR) n++;
+        if(n===1) deadEnds.push({x,y});
+      }
+    }
+    if(deadEnds.length){
+      const spot = deadEnds[Math.floor(rng()*deadEnds.length)];
+      state.decoyKey = {x:spot.x, y:spot.y, interacted:false};
+    } else {
+      state.decoyKey = null;
+    }
+  } else {
+    state.decoyKey = null;
+  }
+
+  cv.width  = state.maze.TW * TILE;
+  cv.height = state.maze.TH * TILE;
+
+  // Fire entry node
+  completeNode(nodeId("entry"));
+  updateHUD();
+}
+
+function roomsFoundThisLevel(){
+  return state.hiddenRooms.filter(r => r.entered).length;
+}
+
+function updateHUD(){
+  el("hudLevel").textContent = state.levelIdx+1;
+  el("hudHP").textContent = state.hp;
+  const done = completedThisLevel();
+  el("hudProgress").textContent = `${Math.round(done/7*100)}%`;
+  el("hudKey").textContent = state.keyFound ? "✓" : "✕";
+  el("hudKey").className = "key" + (state.keyFound?" on":"");
+  el("hudRooms").textContent = roomsFoundThisLevel();
+  el("hudScore").textContent = state.score;
+  el("hudBugs").textContent = state.bugs.length;
+  el("exportBtn").disabled = state.bugs.length===0;
+}
+
+// ---------- rendering ----------
+function draw(){
+  const {grid, TW, TH} = state.maze;
+  const {ex, ey} = state.plan;
+  ctx.clearRect(0,0,cv.width,cv.height);
+
+  for(let y=0;y<TH;y++){
+    for(let x=0;x<TW;x++){
+      const gx=x*TILE, gy=y*TILE;
+      const t = grid[y][x];
+      if(t===TILE_WALL || (t===TILE_PASSAGE && !isCrackRoomEntered())){
+        // Walls and undiscovered passages look identical
+        ctx.fillStyle="#242b38";
+        ctx.fillRect(gx,gy,TILE,TILE);
+        ctx.fillStyle="#39435a"; ctx.fillRect(gx,gy,TILE,3);
+        ctx.fillStyle="#141821"; ctx.fillRect(gx,gy+TILE-3,TILE,3);
+        // Subtle crack on the crack-room passage tile as a hint
+        if(t===TILE_PASSAGE){
+          ctx.fillStyle="#2e3850";
+          ctx.fillRect(gx+TILE/2-1, gy+4, 2, TILE-8);
+        }
+      } else {
+        // Regular floor
+        ctx.fillStyle="#1b2130";
+        ctx.fillRect(gx,gy,TILE,TILE);
+        ctx.fillStyle="#222a3c";
+        ctx.fillRect(gx+4,gy+5,2,2);
+        ctx.fillRect(gx+TILE-7,gy+TILE-8,2,2);
+      }
+    }
+  }
+
+  // Exit door
+  drawSprite(ctx, state.keyFound?SPR.doorOpen:SPR.doorLocked, ex*TILE, ey*TILE, TILE);
+
+  // Spine chests (only revealed ones)
+  for(const c of state.chests){
+    if(c.revealed && !c.collected) drawSprite(ctx, SPR.chest, c.tx*TILE, c.ty*TILE, TILE);
+  }
+
+  // Decoy key chest (stuckKey bug — always visible like the real key chest)
+  if(state.decoyKey){
+    drawSprite(ctx, SPR.chest, state.decoyKey.x*TILE, state.decoyKey.y*TILE, TILE);
+  }
+
+  // Gems (Achiever branch)
+  const gemSprites = {ruby:SPR.gemRuby, emerald:SPR.gemEmerald, sapphire:SPR.gemSapphire};
+  for(const gem of state.gems){
+    if(!gem.collected && gem.x >= 0){
+      drawSprite(ctx, gemSprites[gem.color], gem.x*TILE, gem.y*TILE, TILE);
+    }
+  }
+
+  // Hidden room passages (revealed by X but not entered — glowing doorway marker)
+  for(const hr of state.hiddenRooms){
+    if(hr.revealed && !hr.entered){
+      const gx = hr.passX*TILE, gy = hr.passY*TILE;
+      ctx.fillStyle = "rgba(120,200,255,0.25)";
+      ctx.fillRect(gx, gy, TILE, TILE);
+      ctx.strokeStyle = "rgba(120,200,255,0.7)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(gx+2, gy+2, TILE-4, TILE-4);
+    }
+  }
+
+  // Hidden room pedestals (notes not yet collected)
+  for(const hr of state.hiddenRooms){
+    if(hr.entered && !hr.note.collected){
+      drawSprite(ctx, SPR.pedestal, hr.note.x*TILE, hr.note.y*TILE, TILE);
+    }
+  }
+
+  // Trophy (appears after brute dies)
+  if(state.trophy && !state.trophy.collected){
+    drawSprite(ctx, SPR.trophy, state.trophy.x*TILE, state.trophy.y*TILE, TILE);
+  }
+
+  // Enemies
+  const now = performance.now();
+  for(const en of state.enemies){
+    // Boss glow when player is in line of sight (pulses faster as aim charges)
+    if(en.tough && en.hp > 0 && en.spotTime){
+      const aimProg = Math.min(1, (now - en.spotTime) / BRUTE_AIM_DELAY);
+      const speed = 150 - 100 * aimProg;
+      const pulse = (0.2 + 0.2 * aimProg) + 0.15 * Math.sin(now / speed);
+      ctx.fillStyle = `rgba(255,60,40,${pulse})`;
+      ctx.fillRect(en.x*TILE - 3, en.y*TILE - 3, TILE + 6, TILE + 6);
+    }
+    drawSprite(ctx, en.tough ? SPR.brute : SPR.enemy, en.x*TILE, en.y*TILE, TILE);
+    if(en.tough && en.hp>0){
+      const pipW = Math.floor(TILE/(BRUTE_HP+1));
+      for(let h=0; h<en.hp; h++){
+        ctx.fillStyle = "#e2554e";
+        ctx.fillRect(en.x*TILE + 2 + h*(pipW+1), en.y*TILE - 4, pipW, 3);
+      }
+    }
+  }
+
+  // Projectiles
+  for(const p of state.projectiles){
+    ctx.fillStyle = "#ff4433";
+    const cx = p.x*TILE + TILE/2, cy = p.y*TILE + TILE/2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, TILE/4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(255,100,60,${0.3 + 0.15*Math.sin(now/100)})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy, TILE/3, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // Player (flash during invincibility)
+  const iFrameActive = state.iFrameUntil && now < state.iFrameUntil;
+  if(!iFrameActive || Math.floor(now / 80) % 2 === 0){
+    drawSprite(ctx, SPR.player, state.px*TILE, state.py*TILE, TILE);
+  }
+
+  // Player health bar (rendered above player)
+  const hpBarW = TILE;
+  const hpBarH = 3;
+  const hpBarX = state.px*TILE;
+  const hpBarY = state.py*TILE - 6;
+  ctx.fillStyle = "#333";
+  ctx.fillRect(hpBarX, hpBarY, hpBarW, hpBarH);
+  const hpFrac = Math.max(0, state.hp) / 3;
+  ctx.fillStyle = hpFrac > 0.5 ? "#4ade80" : hpFrac > 0.25 ? "#fbbf24" : "#ef4444";
+  ctx.fillRect(hpBarX, hpBarY, Math.round(hpBarW * hpFrac), hpBarH);
+
+  // Sword swing arc
+  if(now < state.swingUntil){
+    ctx.fillStyle="rgba(246,210,75,0.16)";
+    for(const [x,y] of state.swingTiles){
+      ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
+    }
+    ctx.strokeStyle="rgba(255,240,180,0.95)"; ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(state.px*TILE, (state.py+1)*TILE);
+    ctx.lineTo((state.px+1)*TILE, state.py*TILE);
+    ctx.stroke();
+  }
+}
+
+function loop(t){
+  if(state.paused || !state.alive){
+    state.lastEnemyMove = t;
+  } else {
+    handleHeld(t);
+    if(t - state.lastEnemyMove >= ENEMY_INTERVAL){ state.lastEnemyMove = t; stepEnemies(); }
+    stepBossShoot(t);
+    stepProjectiles(t);
+    stepGems(t);
+    draw();
+  }
+  requestAnimationFrame(loop);
+}
+
+// ---------- gem system (Achiever branch) ----------
+function randomFloorTile(){
+  const {grid, TW, TH} = state.maze;
+  const {startTx, startTy, ex, ey} = state.plan;
+  const floors = [];
+  for(let y=1; y<TH-1; y++){
+    for(let x=1; x<TW-1; x++){
+      if(grid[y][x] !== TILE_FLOOR) continue;
+      if(x===startTx && y===startTy) continue;
+      if(x===ex && y===ey) continue;
+      floors.push([x,y]);
+    }
+  }
+  return floors[Math.floor(Math.random()*floors.length)];
+}
+
+function spawnGem(gem, now){
+  const [x,y] = randomFloorTile();
+  gem.x = x; gem.y = y;
+  gem.spawnTime = now;
+}
+
+function stepGems(t){
+  for(const gem of state.gems){
+    if(gem.collected) continue;
+    if(gem.x < 0){
+      spawnGem(gem, t);
+    } else if(t - gem.spawnTime >= GEM_VISIBLE_MS){
+      spawnGem(gem, t);
+    } else {
+      const dist = Math.abs(state.px - gem.x) + Math.abs(state.py - gem.y);
+      if(dist <= GEM_FLEE_DIST && dist > 0 && t - gem.spawnTime >= 500){
+        spawnGem(gem, t);
+      }
+    }
+  }
+}
+
+function collectGem(gem){
+  if(gem.phantom) return;
+  gem.collected = true;
+  const pts = GEM_POINTS[gem.idx] * (state.levelIdx+1);
+  state.score += pts;
+  playCoin();
+  const names = {ruby:"Ruby", emerald:"Emerald", sapphire:"Sapphire"};
+  toast(`${names[gem.color]}! +${pts} points`);
+  completeNode(nodeId("chest"));
+  markBranchOutcome(nodeId("chest"), "found");
+  const collectedCount = state.gems.filter(g => g.collected).length;
+  if(state.bugsThisLevel.phantomGem && collectedCount >= 3){
+    gem.collected = false;
+    gem.phantom = true;
+    gem.spawnTime = performance.now();
+  }
+  updateHUD();
+}
+
+// ---------- hidden room helpers ----------
+function isCrackRoomEntered(){
+  const cr = state.hiddenRooms.find(r => r.type === "crack");
+  return cr && cr.entered;
+}
+
+function playRoomCue(count){
+  if(!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+  g.connect(audioCtx.destination);
+  const o = audioCtx.createOscillator();
+  o.type = "sine";
+  // Pitch rises with each step: 220 → 330 → 440
+  const freq = 220 * (1 + count * 0.5);
+  o.frequency.setValueAtTime(freq, now);
+  o.frequency.exponentialRampToValueAtTime(freq * 1.05, now + 0.3);
+  o.connect(g);
+  o.start(now);
+  g.gain.setValueAtTime(0.18, now + 0.25);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+  o.stop(now + 0.62);
+}
+
+function playRoomOpen(){
+  if(!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.25, now + 0.03);
+  g.connect(audioCtx.destination);
+  const o = audioCtx.createOscillator();
+  o.type = "triangle";
+  o.frequency.setValueAtTime(440, now);
+  o.frequency.exponentialRampToValueAtTime(880, now + 0.2);
+  o.connect(g);
+  o.start(now);
+  g.gain.setValueAtTime(0.25, now + 0.2);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+  o.stop(now + 0.52);
+}
+
+function enterHiddenRoom(hr){
+  hr.entered = true;
+  playCoin();
+  toast("You found a hidden room!");
+  completeNode(nodeId("room"));
+  markBranchOutcome(nodeId("room"), "found");
+  updateHUD();
+}
+
+// ---------- movement ----------
+function isWalkable(x, y){
+  const g = state.maze.grid;
+  if(!g[y]) return false;
+  const t = g[y][x];
+  if(t === TILE_FLOOR || t === TILE_PASSAGE) return true;
+  if(state.wallClipTile && x===state.wallClipTile.x && y===state.wallClipTile.y) return true;
+  return false;
+}
+
+function handleHeld(t){
+  if(t - state.lastMove < 115) return;
+  let dx=0, dy=0;
+  const k = state.keys;
+  if(k.has("ArrowUp")||k.has("w")) dy=-1;
+  else if(k.has("ArrowDown")||k.has("s")) dy=1;
+  else if(k.has("ArrowLeft")||k.has("a")) dx=-1;
+  else if(k.has("ArrowRight")||k.has("d")) dx=1;
+  if(dx===0&&dy===0) return;
+  const nx=state.px+dx, ny=state.py+dy;
+  if(isWalkable(nx, ny)){
+    state.px=nx; state.py=ny; state.lastMove=t;
+    recordMove();
+    onEnterTile();
+    checkEnemyCollision();
+  } else {
+    // Wall bump — track for Explorer branch "attempted" detection
+    logWallBump(nx, ny);
+  }
+}
+
+function logWallBump(wx, wy){
+  for(const hr of state.hiddenRooms){
+    if(hr.entered) continue;
+    const dist = Math.abs(wx - hr.passX) + Math.abs(wy - hr.passY);
+    if(dist <= 2){
+      markBranchOutcome(nodeId("room"), "attempted");
+    }
+  }
+}
+
+// ---------- enemies ----------
+function spawnEnemies(maze, plan, count, seed){
+  const {grid} = maze;
+  const rnd = mulberry32(seed ^ 0x1234abcd);
+  const F = (x,y) => isWalkableTile(grid, x, y);
+  const cand = [];
+  for(let y=1; y<maze.TH-1; y++){
+    for(let x=1; x<maze.TW-1; x++){
+      if(!F(x,y)) continue;
+      const horiz = F(x-1,y) && F(x+1,y) && !F(x,y-1) && !F(x,y+1);
+      const vert  = F(x,y-1) && F(x,y+1) && !F(x-1,y) && !F(x+1,y);
+      if(horiz) cand.push({x,y,dx:1,dy:0});
+      else if(vert) cand.push({x,y,dx:0,dy:1});
+    }
+  }
+  const sx=plan.startTx, sy=plan.startTy;
+  let candidatePool = cand.filter(c => Math.abs(c.x-sx)+Math.abs(c.y-sy) >= 5);
+  if(candidatePool.length < count) candidatePool = cand.slice();
+  for(let i=candidatePool.length-1; i>0; i--){
+    const j=Math.floor(rnd()*(i+1));
+    [candidatePool[i],candidatePool[j]]=[candidatePool[j],candidatePool[i]];
+  }
+
+  const chosen = [];
+  const spaced = c => chosen.every(e => Math.abs(e.x-c.x)+Math.abs(e.y-c.y) >= 3);
+  for(const c of candidatePool){
+    if(chosen.length>=count) break;
+    if(!spaced(c)) continue;
+    if(rnd()<0.5){ c.dx=-c.dx; c.dy=-c.dy; }
+    chosen.push({x:c.x, y:c.y, dx:c.dx, dy:c.dy, hp:1, tough:false});
+  }
+  for(const c of candidatePool){
+    if(chosen.length>=count) break;
+    if(!chosen.some(e => e.x===c.x && e.y===c.y))
+      chosen.push({x:c.x, y:c.y, dx:c.dx, dy:c.dy, hp:1, tough:false});
+  }
+  return chosen;
+}
+
+function isWalkableTile(grid, x, y){
+  if(!grid[y]) return false;
+  const t = grid[y][x];
+  return t === TILE_FLOOR;
+}
+
+function hasLineOfSight(ax, ay, bx, by){
+  if(ax !== bx && ay !== by) return false;
+  const dx = Math.sign(bx - ax), dy = Math.sign(by - ay);
+  let cx = ax + dx, cy = ay + dy;
+  while(cx !== bx || cy !== by){
+    if(!isWalkableTile(state.maze.grid, cx, cy)) return false;
+    cx += dx; cy += dy;
+  }
+  return true;
+}
+
+function stepBossShoot(t){
+  for(const e of state.enemies){
+    if(!e.tough || e.hp <= 0) continue;
+    const los = hasLineOfSight(e.x, e.y, state.px, state.py);
+    if(los){
+      if(!e.spotTime){ e.spotTime = t; e.aiming = true; }
+    } else {
+      e.spotTime = 0;
+      e.aiming = false;
+      continue;
+    }
+    if(t - e.spotTime < BRUTE_AIM_DELAY) continue;
+    if(!e.lastShot) e.lastShot = t;
+    if(t - e.lastShot < BRUTE_SHOOT_CD) continue;
+    e.lastShot = t;
+    e.aiming = false;
+    const dx = Math.sign(state.px - e.x), dy = Math.sign(state.py - e.y);
+    state.projectiles.push({x: e.x + dx, y: e.y + dy, dx, dy, lastStep: t});
+  }
+}
+
+function stepProjectiles(t){
+  const alive = [];
+  for(const p of state.projectiles){
+    if(t - p.lastStep < PROJECTILE_SPEED){ alive.push(p); continue; }
+    p.lastStep = t;
+    p.x += p.dx; p.y += p.dy;
+    if(!isWalkableTile(state.maze.grid, p.x, p.y)) continue;
+    if(p.x === state.px && p.y === state.py){
+      checkProjectileHit();
+      continue;
+    }
+    alive.push(p);
+  }
+  state.projectiles = alive;
+}
+
+function stepEnemies(){
+  for(const e of state.enemies){
+    if(e.aiming) continue;
+    let nx=e.x+e.dx, ny=e.y+e.dy;
+    if(!isWalkableTile(state.maze.grid, nx, ny)){
+      e.dx=-e.dx; e.dy=-e.dy;
+      nx=e.x+e.dx; ny=e.y+e.dy;
+      if(!isWalkableTile(state.maze.grid, nx, ny)) continue;
+    }
+    e.x=nx; e.y=ny;
+  }
+  checkEnemyCollision();
+}
+
+function checkEnemyCollision(){
+  if(!state.alive) return;
+  if(state.iFrameUntil && performance.now() < state.iFrameUntil) return;
+  const hit = state.enemies.some(e => e.x===state.px && e.y===state.py) ||
+              state.projectiles.some(p => p.x===state.px && p.y===state.py);
+  if(hit) takeDamage();
+}
+
+function checkProjectileHit(){
+  if(!state.alive) return;
+  if(state.iFrameUntil && performance.now() < state.iFrameUntil) return;
+  if(state.projectiles.some(p => p.x===state.px && p.y===state.py)) takeDamage();
+}
+
+function takeDamage(){
+  if(!state.alive) return;
+  state.hp--;
+  state.iFrameUntil = performance.now() + 800;
+  if(state.hp <= 0) die();
+  else toast(`Ouch! ${state.hp} HP remaining.`);
+  updateHUD();
+}
+
+function die(){
+  if(!state.alive) return;
+  state.alive = false;
+  state.hp = 0;
+  state.keys.clear();
+  finalizeBranchOutcomes();
+  updateHUD();
+  showOverlay("over");
+}
+
+function reachableTiles(sx, sy, maxDepth){
+  const seen = new Set([sx+","+sy]);
+  const tiles = [[sx,sy]];
+  let frontier = [[sx,sy,0]];
+  while(frontier.length){
+    const [x,y,d] = frontier.shift();
+    if(d>=maxDepth) continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=x+dx, ny=y+dy, key=nx+","+ny;
+      if(isWalkable(nx, ny) && !seen.has(key)){
+        seen.add(key); tiles.push([nx,ny]); frontier.push([nx,ny,d+1]);
+      }
+    }
+  }
+  return { seen, tiles };
+}
+
+function swingSword(){
+  if(state.paused || !state.alive) return;
+  const t = performance.now();
+  if(t - state.lastSwing < SWORD_COOLDOWN) return;
+  state.lastSwing = t;
+  state.swingUntil = t + SWORD_FLASH;
+  const reach = reachableTiles(state.px, state.py, SWORD_RANGE);
+  state.swingTiles = reach.tiles;
+  let killed = 0, resisted = false;
+  const survivors = [];
+  for(const e of state.enemies){
+    if(reach.seen.has(e.x+","+e.y)){
+      state.progression.swordSwung = true;
+      e.hp = (e.hp||1) - 1;
+      if(e.hp <= 0){
+        if(e.tough){
+          killed++;
+          state.progression.bossKilled = true;
+          completeNode(nodeId("boss"));
+          markBranchOutcome(nodeId("boss"), "found");
+          if(e.buggyUndead){
+            e.hp = 1;
+            survivors.push(e);
+          } else {
+            state.bruteAlive = false;
+            state.trophy = {x:e.x, y:e.y, collected:false};
+          }
+          continue;
+        } else {
+          killed++;
+          state.progression.enemiesKilled++;
+          completeNode(nodeId("boss"));
+          markBranchOutcome(nodeId("boss"), "found");
+          continue;
+        }
+      } else {
+        resisted = true;
+        if(e.tough){
+          markBranchOutcome(nodeId("boss"), "attempted");
+        }
+      }
+    }
+    survivors.push(e);
+  }
+  state.enemies = survivors;
+  if(killed) toast(killed===1 ? "Enemy slain." : `${killed} enemies slain.`);
+  else if(resisted) toast("The brute shrugs it off!");
+}
+
+function recordMove(){
+  const h = state.moveHist;
+  h.push([state.px, state.py]);
+  if(h.length > 3) h.shift();
+  checkProbeReveal();
+}
+
+function checkProbeReveal(){
+  const h = state.moveHist;
+  if(h.length < 3) return;
+  const a=h[2], b=h[1], c=h[0];
+  const returned = a[0]===c[0] && a[1]===c[1];
+  const movedAway = a[0]!==b[0] || a[1]!==b[1];
+  if(!(returned && movedAway)) return;
+
+  // Check spine chests
+  for(const ch of state.chests){
+    if(!ch.revealed && ch.trigX===a[0] && ch.trigY===a[1]){
+      ch.revealed = true;
+      playCoin();
+      toast("Something shifts nearby — a chest appears.");
+    }
+  }
+
+}
+
+function revealAllChests(){
+  if(state.paused) return;
+  let any=false;
+  for(const c of state.chests){ if(!c.revealed){ c.revealed=true; any=true; } }
+  for(const hr of state.hiddenRooms){
+    if(!hr.revealed){
+      hr.opened = true;
+      hr.revealed = true;
+      state.maze.grid[hr.passY][hr.passX] = TILE_FLOOR;
+      any = true;
+    }
+  }
+  toast(any ? "All secrets exposed." : "All secrets already visible.");
+}
+
+function onEnterTile(){
+  const {ex,ey} = state.plan;
+
+  // Hidden rooms — check passage entry and audio trigger
+  for(const hr of state.hiddenRooms){
+    // Audio trigger tile: play sound and count walks
+    if(hr.type === "audio" && !hr.opened &&
+       state.px === hr.triggerX && state.py === hr.triggerY){
+      hr.triggerCount++;
+      playRoomCue(hr.triggerCount);
+      if(hr.triggerCount >= 3){
+        // Open the sealed passage
+        hr.opened = true;
+        state.maze.grid[hr.passY][hr.passX] = TILE_FLOOR;
+        playRoomOpen();
+        toast("A wall grinds open nearby!");
+        markBranchOutcome(nodeId("room"), "attempted");
+      } else {
+        toast(`The stone hums... (${hr.triggerCount}/3)`);
+        markBranchOutcome(nodeId("room"), "attempted");
+      }
+    }
+
+    // Entering a passage tile (crack rooms: always open; audio rooms: after triggered)
+    if(hr.opened && !hr.entered && state.px === hr.passX && state.py === hr.passY){
+      enterHiddenRoom(hr);
+    }
+
+    // Note collection inside the room
+    if(hr.entered && !hr.note.collected &&
+       state.px === hr.note.x && state.py === hr.note.y){
+      if(state.bugsThisLevel.missingNote){
+        toast("The pedestal is empty...");
+      } else {
+        hr.note.collected = true;
+        if(!state.notesFound.includes(hr.note.content)){
+          state.notesFound.push(hr.note.content);
+        }
+        openNote(hr.note.content);
+        return;
+      }
+    }
+  }
+
+  // Collect trophy (Killer branch reward)
+  if(state.trophy && !state.trophy.collected &&
+     state.px===state.trophy.x && state.py===state.trophy.y){
+    state.trophy.collected = true;
+    const pts = BONUS_POINTS * (state.levelIdx+1);
+    state.score += pts;
+    playCoin();
+    toast(`Trophy! +${pts} points`);
+    updateHUD();
+    return;
+  }
+
+  // Collect gems (Achiever branch)
+  for(const gem of state.gems){
+    if(!gem.collected && gem.x===state.px && gem.y===state.py){
+      collectGem(gem);
+      return;
+    }
+  }
+  // Near-miss: walked within 2 tiles of a gem (track "attempted")
+  for(const gem of state.gems){
+    if(!gem.collected && gem.x >= 0){
+      const gd = Math.abs(state.px-gem.x) + Math.abs(state.py-gem.y);
+      if(gd <= 2) markBranchOutcome(nodeId("chest"), "attempted");
+    }
+  }
+
+  // Decoy key chest (stuckKey bug)
+  if(state.decoyKey && state.px===state.decoyKey.x && state.py===state.decoyKey.y){
+    if(!state.decoyKey.interacted){
+      state.decoyKey.interacted = true;
+      toast("A key! But it's jammed — you can't pull it free.");
+    }
+  }
+
+  // Spine chest collection
+  const chest = state.chests.find(c => c.revealed && !c.collected && c.tx===state.px && c.ty===state.py);
+  if(chest){
+    chest.collected = true;
+    if(chest.type==="key"){
+      state.keyFound = true;
+      completeNode(nodeId("key"));
+    } else {
+      if(!state.notesFound.includes(chest.content)) state.notesFound.push(chest.content);
+      completeNode(nodeId("room"));
+      markBranchOutcome(nodeId("room"), "found");
+    }
+    updateHUD();
+    openChest(chest);
+    return;
+  }
+
+  // Exit tile
+  if(state.px===ex && state.py===ey){
+    if(!state.keyFound){
+      toast("The door is locked — find the key.");
+    } else {
+      levelComplete();
+    }
+  }
+}
+
+function openChest(chest){
+  if(chest.type==="key"){
+    el("clueTitle").textContent = "Treasure — the Iron Key";
+    el("clueText").textContent = KEY_TEXT;
+  } else {
+    el("clueTitle").textContent = "Treasure — a note";
+    el("clueText").textContent = chest.content;
+  }
+  showOverlay("clue");
+}
+
+function openNote(content){
+  el("clueTitle").textContent = "Wren's Journal";
+  el("clueText").textContent = content;
+  showOverlay("clue");
+}
+
+function levelComplete(){
+  completeNode(nodeId("exit"));
+  finalizeBranchOutcomes();
+  if(state.levelIdx < CHAMBERS.length-1){
+    el("levelTitle").textContent = "Chamber Cleared";
+    el("levelText").textContent = "The floor opens beneath the door. You descend to the next chamber, deeper into the vault.";
+    showOverlay("level");
+  } else {
+    winGame();
+  }
+}
+
+function winGame(){
+  const TOTAL_NOTES = 12; // 6 spine + 3 crack + 3 audio
+  const found = state.notesFound.length;
+  const ul = el("winClues"); ul.innerHTML="";
+
+  if(found === TOTAL_NOTES){
+    el("winTitle").textContent = "The Mystery Resolved";
+    el("winNarrative").innerHTML = "You collected every page of Wren's journal. The story is clear: <b>Wren mapped the vault, discovered it was alive, and chose to stay</b> — leaving notes so the next person could escape safely. Wren's sacrifice kept the village safe. You carry the truth home.";
+  } else if(found > 0){
+    el("winTitle").textContent = "You Escaped";
+    el("winNarrative").textContent = "You turn the iron key. The last door groans open to daylight. You escaped the vault, but pieces of Wren's story remain hidden in the chambers behind you. The mystery is not yet solved.";
+  } else {
+    el("winTitle").textContent = "You Escaped";
+    el("winNarrative").textContent = "You turn the iron key. The last door groans open to daylight. The Vault of Echoes falls silent behind you. You never found Wren's journal — the mystery of your mentor's disappearance remains unsolved.";
+  }
+
+  el("winNoteCount").textContent = `Journal pages found: ${found} / ${TOTAL_NOTES}`;
+  const notes = state.notesFound.length ? state.notesFound
+    : ["(You escaped without reading any of Wren's notes.)"];
+  notes.forEach(c=>{
+    const li=document.createElement("li"); li.textContent=c.replace(/\n/g," "); ul.appendChild(li);
+  });
+  const byImpact = state.bugs.reduce((a,b)=>(a[b.impact_rating]=(a[b.impact_rating]||0)+1,a),{});
+  const impStr = Object.keys(byImpact).sort().map(s=>`impact${s}:${byImpact[s]}`).join("  ");
+  el("winStats").textContent = `Score: ${state.score}  ·  Bugs reported: ${state.bugs.length}${impStr?"  ("+impStr+")":""}`;
+
+  // Branch summary
+  const bo = state.progression.branchOutcomes;
+  const rf = state.progression.roomsFound || {};
+  const branchLines = [];
+  for(let lvl=1; lvl<=3; lvl++){
+    const parts = [];
+    const rooms = rf["l"+lvl];
+    parts.push("Rooms:"+(rooms ? rooms.found+"/"+rooms.total : "?"));
+    for(const phase of ["chest","boss"]){
+      const nid = "l"+lvl+"."+phase;
+      const outcome = bo[nid] || "never_approached";
+      const label = phase==="chest"?"Gems":"Boss";
+      parts.push(label+":"+outcome);
+    }
+    branchLines.push("L"+lvl+" "+parts.join(" "));
+  }
+  el("winBranches").textContent = branchLines.join("  ·  ");
+  showOverlay("win");
+}
+
+// ---------- bug reporting ----------
+let bugSev = null;
+function openBugForm(){
+  if(state.paused) return;
+  bugSev = null;
+  el("bugDesc").value = "";
+  el("bugCategory").value = "Movement/Collision";
+  document.querySelectorAll("#sevGroup button").forEach(b=>b.classList.remove("sel"));
+  el("sevHint").textContent = "";
+  el("bugSubmit").disabled = true;
+  const now = new Date();
+  const done = completedNodes();
+  el("bugCtx").innerHTML =
+    `Chamber <b>${state.levelIdx+1}</b> · tile <b>(${state.px}, ${state.py})</b> · ` +
+    `nodes <b>${done.length}/21</b> · key <b>${state.keyFound?"yes":"no"}</b><br>` +
+    `${now.toLocaleTimeString()}`;
+  showOverlay("bug");
+  setTimeout(()=>el("bugDesc").focus(), 30);
+}
+function validateBug(){
+  el("bugSubmit").disabled = !(el("bugDesc").value.trim() && bugSev);
+}
+function submitBug(){
+  const bug = {
+    id: state.bugs.length+1,
+    bug_id: "b-"+(state.bugs.length+1)+"-l"+(state.levelIdx+1),
+    chamber: state.levelIdx+1,
+    seed: CHAMBERS[state.levelIdx].seed,
+    tileX: state.px, tileY: state.py,
+    category: el("bugCategory").value,
+    impact_rating: bugSev,
+    severity: bugSev,
+    description: el("bugDesc").value.trim(),
+    completed_nodes: completedNodes(),
+    injectedBugs: activeBugsForLevel(state.levelIdx+1),
+    timestamp: new Date().toISOString(),
+  };
+  state.bugs.push(bug);
+  updateHUD();
+  showOverlay(null);
+  toast(`Bug #${bug.id} logged (impact ${bug.impact_rating}).`);
+}
+
+function injectedConfigAll(){
+  const out = {};
+  [1,2,3].forEach(l => { out[l] = activeBugsForLevel(l); });
+  return out;
+}
+
+function buildSession(){
+  return {
+    schema: "vault-of-echoes.study-session/v1",
+    player: { id: state.playerId || state.sessionId },
+    session: {
+      build: "voe-study-1.0",
+      seed: CHAMBERS[0].seed,
+      started_at: state.sessionStart,
+      ended_at: new Date().toISOString(),
+    },
+    node_completions: state.progression.completions,
+    bug_encounters: state.progression.encounters,
+    bug_reports: state.bugs,
+    branch_outcomes: state.progression.branchOutcomes,
+    rooms_found: state.progression.roomsFound || {},
+    level_engagement: state.progression.levelEngagement || {},
+    player_type: classifyPlayerType(),
+    injectedConfig: injectedConfigAll(),
+    finalScore: state.score,
+  };
+}
+
+function exportBugs(){
+  if(state.bugs.length===0 && state.progression.completions.length===0){
+    toast("Nothing to export yet."); return;
+  }
+  const blob = new Blob([JSON.stringify(buildSession(), null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "vault-of-echoes-session-" + (state.sessionId||"session").slice(0,8) + ".json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------- audio ----------
+let audioCtx = null;
+function ensureAudio(){
+  if(!audioCtx){
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ audioCtx = null; }
+  }
+  if(audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+}
+function playCoin(){
+  if(!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.22, now + 0.01);
+  g.connect(audioCtx.destination);
+  const o = audioCtx.createOscillator();
+  o.type = "square";
+  o.frequency.setValueAtTime(988, now);
+  o.frequency.setValueAtTime(1319, now + 0.08);
+  o.connect(g);
+  o.start(now);
+  g.gain.setValueAtTime(0.22, now + 0.08);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.30);
+  o.stop(now + 0.32);
+}
+
+// ---------- toast ----------
+let toastTimer=null;
+function toast(msg){
+  const t=el("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+// ---------- input wiring ----------
+const MOVE_KEYS = new Set(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","w","a","s","d","W","A","S","D"]);
+window.addEventListener("keydown", e=>{
+  ensureAudio();
+  const anyOverlay = Object.values(overlays).some(o=>o.classList.contains("show"));
+  if(e.key==="Escape"){
+    if(overlays.bug.classList.contains("show")) showOverlay(null);
+    return;
+  }
+  if(anyOverlay) return;
+  const key = e.key.length===1 ? e.key.toLowerCase() : e.key;
+  if(MOVE_KEYS.has(e.key)){ state.keys.add(key); e.preventDefault(); }
+  if(key==="b"){ openBugForm(); e.preventDefault(); }
+  if(key==="x"){ revealAllChests(); e.preventDefault(); }
+  if(e.code==="Space"){ swingSword(); e.preventDefault(); }
+});
+window.addEventListener("keyup", e=>{
+  const key = e.key.length===1 ? e.key.toLowerCase() : e.key;
+  state.keys.delete(key);
+});
+function clearKeys(){ state.keys.clear(); }
+
+// severity buttons
+document.querySelectorAll("#sevGroup button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    bugSev = parseInt(btn.dataset.sev,10);
+    document.querySelectorAll("#sevGroup button").forEach(b=>b.classList.remove("sel"));
+    btn.classList.add("sel");
+    el("sevHint").textContent = SEV_HINT[bugSev];
+    validateBug();
+  });
+});
+el("bugDesc").addEventListener("input", validateBug);
+el("bugSubmit").addEventListener("click", submitBug);
+el("bugCancel").addEventListener("click", ()=>showOverlay(null));
+el("exportBtn").addEventListener("click", exportBugs);
+el("winExport").addEventListener("click", exportBugs);
+
+// ---------- login ----------
+async function hashPlayerId(firstName, lastInitial, studentId){
+  const raw = `${firstName.trim().toLowerCase()}|${lastInitial.trim().toUpperCase()}|${studentId.trim()}`;
+  const buf = new TextEncoder().encode(raw);
+  const hash = await crypto.subtle.digest("SHA-256", buf);
+  const arr = Array.from(new Uint8Array(hash));
+  return arr.slice(0,8).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+el("loginBtn").addEventListener("click", async ()=>{
+  const first = el("loginFirst").value.trim();
+  const lastInit = el("loginLastInit").value.trim();
+  const sid = el("loginStudentId").value.trim();
+  if(!first || !lastInit || !sid){
+    el("loginError").style.display = "";
+    return;
+  }
+  el("loginError").style.display = "none";
+  state.playerId = await hashPlayerId(first, lastInit, sid);
+  state.playerName = first;
+  showOverlay("intro");
+});
+
+// flow buttons
+el("introNext").addEventListener("click", ()=>{
+  showOverlay("tut");
+});
+el("startBtn").addEventListener("click", ()=>{
+  ensureAudio();
+  state.progression = {completions:[], encounters:[], branchOutcomes:{}, branchAttempts:{}, startTime:Date.now(), enemiesKilled:0, bossKilled:false, swordSwung:false, levelEngagement:{}};
+  state.notesFound = [];
+  state.bugs = [];
+  state.score = 0;
+  loadLevel(0);
+  clearKeys();
+  showOverlay(null);
+});
+el("clueBtn").addEventListener("click", ()=>{ clearKeys(); showOverlay(null); });
+el("levelBtn").addEventListener("click", ()=>{ loadLevel(state.levelIdx+1); clearKeys(); showOverlay(null); });
+el("winReplay").addEventListener("click", ()=>{
+  state.progression = {completions:[], encounters:[], branchOutcomes:{}, branchAttempts:{}, startTime:Date.now(), enemiesKilled:0, bossKilled:false, swordSwung:false, levelEngagement:{}};
+  state.notesFound=[]; state.bugs=[]; state.keyFound=false;
+  state.score=0;
+  loadLevel(0); clearKeys(); showOverlay(null);
+});
+el("overRetry").addEventListener("click", ()=>{
+  loadLevel(state.levelIdx); clearKeys(); showOverlay(null);
+});
+el("overRestart").addEventListener("click", ()=>{
+  state.progression = {completions:[], encounters:[], branchOutcomes:{}, branchAttempts:{}, startTime:Date.now(), enemiesKilled:0, bossKilled:false, swordSwung:false, levelEngagement:{}};
+  state.notesFound=[]; state.keyFound=false;
+  state.score=0;
+  loadLevel(0); clearKeys(); showOverlay(null);
+});
+
+// ---------- boot ----------
+state.sessionId = (()=>{ try { if(crypto && crypto.randomUUID) return crypto.randomUUID(); } catch(e){} return "sess-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10); })();
+state.sessionStart = new Date().toISOString();
+state.progression.startTime = Date.now();
+if(SHOW_QA_BADGE && anyBugConfigured()) el("qaBadge").style.display = "";
+loadLevel(0);
+draw();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+{
+  "schema": "vault-of-echoes.study-session/v1",
+  "player": {
+    "id": "P07",
+    "classified_type": "explorer",
+    "questionnaire": {"explorer": 9, "achiever": 5, "killer": 3},
+    "telemetry": {"kills": 4, "area_coverage_pct": 91, "chests_found": 3, "notes_collected": 3, "levels_completed": 2}
+  },
+  "session": {"build": "voe-0.4.0-study", "seed": 1207, "started_at": "2026-09-23T14:02:11Z", "ended_at": "2026-09-23T14:31:48Z"},
+  "node_completions": [
+    {"node": "l1.entry", "timestamp": "2026-09-23T14:02:14Z", "elapsed_ms": 3000},
+    {"node": "l1.nav",   "timestamp": "2026-09-23T14:03:40Z", "elapsed_ms": 89000},
+    {"node": "l1.room",  "timestamp": "2026-09-23T14:05:02Z", "elapsed_ms": 171000},
+    {"node": "l1.key",   "timestamp": "2026-09-23T14:06:30Z", "elapsed_ms": 259000},
+    {"node": "l1.exit",  "timestamp": "2026-09-23T14:07:12Z", "elapsed_ms": 301000},
+    {"node": "l2.entry", "timestamp": "2026-09-23T14:07:15Z", "elapsed_ms": 304000},
+    {"node": "l2.nav",   "timestamp": "2026-09-23T14:09:55Z", "elapsed_ms": 464000},
+    {"node": "l2.room",  "timestamp": "2026-09-23T14:12:20Z", "elapsed_ms": 609000},
+    {"node": "l2.boss",  "timestamp": "2026-09-23T14:15:41Z", "elapsed_ms": 810000},
+    {"node": "l2.key",   "timestamp": "2026-09-23T14:17:03Z", "elapsed_ms": 892000},
+    {"node": "l2.exit",  "timestamp": "2026-09-23T14:17:40Z", "elapsed_ms": 929000},
+    {"node": "l3.entry", "timestamp": "2026-09-23T14:17:43Z", "elapsed_ms": 932000},
+    {"node": "l3.nav",   "timestamp": "2026-09-23T14:22:09Z", "elapsed_ms": 1198000},
+    {"node": "l3.room",  "timestamp": "2026-09-23T14:25:30Z", "elapsed_ms": 1399000},
+    {"node": "l3.key",   "timestamp": "2026-09-23T14:28:02Z", "elapsed_ms": 1551000}
+  ],
+  "bug_encounters": [
+    {"bug_id": "b-sword-l1", "node": "l1.nav",  "reported": true,  "time_to_report_ms": 14000},
+    {"bug_id": "b-room-l2",  "node": "l2.room", "reported": true,  "time_to_report_ms": 9000},
+    {"bug_id": "b-chest-l2", "node": "l2.chest","reported": false, "time_to_report_ms": null},
+    {"bug_id": "b-door-l3",  "node": "l3.exit", "reported": true,  "time_to_report_ms": 21000}
+  ],
+  "bug_reports": [
+    {
+      "bug_id": "b-sword-l1",
+      "node": "l1.nav",
+      "timestamp": "2026-09-23T14:03:58Z",
+      "description": "Swung at a guard in the corridor over and over and it just shrugged every hit off.",
+      "gherkin": "Given a guard is on an adjacent tile\nWhen the player swings the sword\nThen the guard should take damage",
+      "impact_rating": 3,
+      "completed_nodes": ["l1.entry", "l1.nav"]
+    },
+    {
+      "bug_id": "b-room-l2",
+      "node": "l2.room",
+      "timestamp": "2026-09-23T14:12:35Z",
+      "description": "Found the hidden room and read the note but the journal entry never showed up on the tally.",
+      "gherkin": "Given the player has collected a story note\nWhen the room is exited\nThen the note should be recorded",
+      "impact_rating": 4
+    },
+    {
+      "bug_id": "b-door-l3",
+      "node": "l3.exit",
+      "timestamp": "2026-09-23T14:28:40Z",
+      "description": "Have the key but the final door will not open at all. Cannot finish the game.",
+      "gherkin": "Given the player holds the chamber key\nWhen the player steps onto the exit tile\nThen the door should open",
+      "impact_rating": 5,
+      "completed_nodes": ["l1.entry","l1.nav","l1.room","l1.key","l1.exit","l2.entry","l2.nav","l2.room","l2.boss","l2.key","l2.exit","l3.entry","l3.nav","l3.room","l3.key"]
+    }
+  ],
+  "branch_outcomes": {
+    "l1.room": "found", "l1.chest": "attempted", "l1.boss": "never_approached",
+    "l2.room": "found", "l2.chest": "attempted", "l2.boss": "found",
+    "l3.room": "found", "l3.chest": "never_approached", "l3.boss": "never_approached"
+  }
+}
