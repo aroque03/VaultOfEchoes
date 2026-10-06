@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault of Echoes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="frame">
+  <div class="titlebar">
+    <h1>◆ VAULT OF ECHOES</h1>
+    <span class="sub">3 CHAMBERS · EXPLORE · COLLECT · FIGHT</span>
+  </div>
+
+  <div class="hud">
+    <span class="cell">CHAMBER <span class="val" id="hudLevel">1</span>/3</span>
+    <span class="cell" id="qaBadge" style="display:none;color:var(--danger)">● TEST BUILD</span>
+    <span class="cell">HP <span class="val" id="hudHP">3</span></span>
+    <span class="cell">PROGRESS <span class="val" id="hudProgress">0/7</span></span>
+    <span class="cell">KEY <span class="key" id="hudKey">✕</span></span>
+    <span class="cell">ROOMS <span class="val" id="hudRooms">0</span>/2</span>
+    <span class="cell">SCORE <span class="val" id="hudScore">0</span></span>
+    <span class="spacer"></span>
+    <span class="cell">BUGS <span class="val" id="hudBugs">0</span></span>
+    <button id="exportBtn" disabled>EXPORT LOG</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="game" width="100" height="100"></canvas>
+    <div class="toast" id="toast"></div>
+
+    <!-- Login -->
+    <div class="overlay show" id="loginOverlay">
+      <div class="card">
+        <h2>Player Registration</h2>
+        <p>Enter your information to begin the study session.</p>
+        <div style="display:flex;flex-direction:column;gap:10px;margin:12px 0;">
+          <label style="font-size:13px;color:#aab;">First Name
+            <input type="text" id="loginFirst" style="display:block;width:100%;margin-top:4px;padding:6px 8px;background:#1b2130;border:1px solid #39435a;color:#eef;border-radius:4px;font-size:14px;" autocomplete="off">
+          </label>
+          <label style="font-size:13px;color:#aab;">Last Initial
+            <input type="text" id="loginLastInit" maxlength="1" style="display:block;width:60px;margin-top:4px;padding:6px 8px;background:#1b2130;border:1px solid #39435a;color:#eef;border-radius:4px;font-size:14px;text-transform:uppercase;" autocomplete="off">
+          </label>
+          <label style="font-size:13px;color:#aab;">Student ID
+            <input type="text" id="loginStudentId" style="display:block;width:100%;margin-top:4px;padding:6px 8px;background:#1b2130;border:1px solid #39435a;color:#eef;border-radius:4px;font-size:14px;" autocomplete="off">
+          </label>
+        </div>
+        <p id="loginError" style="color:#e2554e;font-size:13px;display:none;">Please fill in all fields.</p>
+        <button class="btn" id="loginBtn">REGISTER</button>
+      </div>
+    </div>
+
+    <!-- Intro -->
+    <div class="overlay" id="introOverlay">
+      <div class="card">
+        <h2>The Vault of Echoes</h2>
+        <p><b>Wren</b> — your mentor, the village mapmaker — vanished three weeks ago. For decades, Wren's charts kept every traveler safe. When the disappearances started, Wren went into the vault beneath the old keep to map a way through. Nobody has seen Wren since.</p>
+        <p>You are Wren's apprentice. You stand at the vault's mouth with Wren's last words still in your ears: <i>"If I don't come back, don't follow me."</i> You're going in anyway.</p>
+        <p>Three chambers lie ahead. Somewhere inside, Wren left <b>journal pages</b> — find them all and you may learn what happened. <b>Hidden rooms</b>, <b>gems</b>, and <b>guarded trophies</b> reward those who explore thoroughly.</p>
+        <p><b>Guards</b> pace the corridors — each hit costs one of your <b>3 health points</b>. Press <b>Space</b> to swing your sword.</p>
+        <button class="btn" id="introNext">CONTINUE</button>
+      </div>
+    </div>
+
+    <!-- Tutorial -->
+    <div class="overlay" id="tutOverlay">
+      <div class="card">
+        <h2>How to Play</h2>
+        <p><b>Controls</b></p>
+        <p class="tut-controls">
+          <span><b>Arrow keys</b> or <b>WASD</b> — Move</span><br>
+          <span><b>Space</b> — Swing sword</span><br>
+          <span><b>B</b> — Report a bug</span>
+        </p>
+        <p><b>Goal</b></p>
+        <p>Find the <b>key</b> in each chamber and reach the <b>exit door</b> to advance. There are 3 chambers total.</p>
+        <p><b>Scoring — max 4,200 points</b></p>
+        <p>Collect <b>gems</b> — 3 appear per level, blinking in and out of the corridors. Grab them before they vanish. Defeat <b>enemies</b> to earn a trophy. Points scale with each chamber, so later levels are worth more.</p>
+        <p><b>Beware: this game contains bugs!</b></p>
+        <p>Some things may not work as expected. When you encounter a bug, press <b>B</b> to open the bug report form. Describe what happened, select a category, and rate how much the bug impacted your enjoyment. Your reports are part of the study — report every bug you find.</p>
+        <button class="btn" id="startBtn">ENTER THE VAULT</button>
+      </div>
+    </div>
+
+    <!-- Treasure / clue popup -->
+    <div class="overlay" id="clueOverlay">
+      <div class="card">
+        <h2 id="clueTitle">Treasure Found</h2>
+        <div class="story-note" id="clueText"></div>
+        <button class="btn" id="clueBtn">CONTINUE</button>
+      </div>
+    </div>
+
+    <!-- Level complete -->
+    <div class="overlay" id="levelOverlay">
+      <div class="card">
+        <h2 id="levelTitle">Chamber Cleared</h2>
+        <p id="levelText"></p>
+        <button class="btn" id="levelBtn">DESCEND</button>
+      </div>
+    </div>
+
+    <!-- Bug report -->
+    <div class="overlay" id="bugOverlay">
+      <div class="card">
+        <h2>Report a Bug</h2>
+        <div class="ctx" id="bugCtx"></div>
+        <label>Category</label>
+        <select id="bugCategory">
+          <option value="Movement/Collision">Movement / Collision</option>
+          <option value="Rendering/Graphics">Rendering / Graphics</option>
+          <option value="Treasure/Item">Treasure / Item</option>
+          <option value="Exit/Progression">Exit / Progression</option>
+          <option value="UI/HUD">UI / HUD</option>
+          <option value="Other">Other</option>
+        </select>
+        <label>What happened?</label>
+        <textarea id="bugDesc" placeholder="Describe the bug in your own words..."></textarea>
+        <label>Impact on your enjoyment</label>
+        <div class="sev" id="sevGroup">
+          <button data-sev="1"><span class="n">1</span>Very little</button>
+          <button data-sev="2"><span class="n">2</span>Little</button>
+          <button data-sev="3"><span class="n">3</span>Moderate</button>
+          <button data-sev="4"><span class="n">4</span>High</button>
+          <button data-sev="5"><span class="n">5</span>Extremely high</button>
+        </div>
+        <div class="sevhint" id="sevHint"></div>
+        <div class="row">
+          <button class="btn" id="bugSubmit" disabled>SUBMIT REPORT</button>
+          <button class="btn ghost" id="bugCancel">CANCEL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Win -->
+    <div class="overlay" id="winOverlay">
+      <div class="card">
+        <h2 id="winTitle">You Escaped</h2>
+        <p id="winNarrative"></p>
+        <p class="quiet" id="winNoteCount"></p>
+        <ul class="clues" id="winClues"></ul>
+        <p class="quiet" id="winStats"></p>
+        <p class="quiet" id="winBranches"></p>
+        <div class="row">
+          <button class="btn" id="winExport">EXPORT BUG LOG</button>
+          <button class="btn ghost" id="winReplay">PLAY AGAIN</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game over -->
+    <div class="overlay" id="overOverlay">
+      <div class="card">
+        <h2>Game Over</h2>
+        <p id="overText">A guard caught you in the dark. The vault keeps what it is given.</p>
+        <div class="row">
+          <button class="btn" id="overRetry">RETRY CHAMBER</button>
+          <button class="btn ghost" id="overRestart">RESTART RUN</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <b>MOVE</b> Arrow keys / WASD &nbsp;&nbsp; <b>SPACE</b> swing sword &nbsp;&nbsp; <b>B</b> report a bug &nbsp;&nbsp; <b>ESC</b> close dialog
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/maze.js"></script>
+<script src="js/progression.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
