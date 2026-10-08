@@ -106,20 +106,33 @@ function injectedConfigAll(){
 function buildSession(){
   return {
     schema: "vault-of-echoes.study-session/v1",
-    player: { id: state.playerId || state.sessionId },
+    player: {
+      id: state.playerId || state.sessionId,
+      name: state.playerName || null,
+    },
     session: {
       build: "voe-study-1.0",
       seed: CHAMBERS[0].seed,
       started_at: state.sessionStart,
       ended_at: new Date().toISOString(),
+      duration_ms: Date.now() - state.progression.startTime,
     },
-    node_completions: state.progression.completions,
-    bug_encounters: state.progression.encounters,
+    progression_graph: {
+      nodes_per_level: {
+        l1: ["entry","room","chest","boss","key","exit"],
+        l2: ["entry","room","chest","boss","key","exit"],
+        l3: ["entry","room","chest","boss","greenBoss","key","exit"],
+      },
+      node_completions: state.progression.completions,
+      branch_outcomes: state.progression.branchOutcomes,
+      rooms_found: state.progression.roomsFound || {},
+    },
+    player_classification: {
+      level_engagement: state.progression.levelEngagement || {},
+      player_type: classifyPlayerType(),
+    },
     bug_reports: state.bugs,
-    branch_outcomes: state.progression.branchOutcomes,
-    rooms_found: state.progression.roomsFound || {},
-    level_engagement: state.progression.levelEngagement || {},
-    player_type: classifyPlayerType(),
+    bug_encounters: state.progression.encounters,
     injectedConfig: injectedConfigAll(),
     finalScore: state.score,
   };

@@ -233,6 +233,10 @@ function winGame(){
     branchLines.push("L"+lvl+" "+parts.join(" "));
   }
   el("winBranches").textContent = branchLines.join("  ·  ");
+
+  const session = buildSession();
+  console.log("%c[VoE] Session complete — full data:", "color:#f2a03d;font-weight:bold");
+  console.log(JSON.stringify(session, null, 2));
   showOverlay("win");
 }
 
