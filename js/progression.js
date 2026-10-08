@@ -138,6 +138,20 @@ function buildSession(){
   };
 }
 
+function submitSession(){
+  const session = buildSession();
+  fetch("/api/session", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(session),
+  }).then(r => {
+    if(r.ok) console.log("[VoE] Session saved to server");
+    else console.warn("[VoE] Server save failed:", r.status);
+  }).catch(err => {
+    console.warn("[VoE] Server save error:", err.message);
+  });
+}
+
 function exportBugs(){
   if(state.bugs.length===0 && state.progression.completions.length===0){
     toast("Nothing to export yet."); return;

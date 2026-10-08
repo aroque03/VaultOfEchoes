@@ -237,6 +237,7 @@ function winGame(){
   const session = buildSession();
   console.log("%c[VoE] Session complete — full data:", "color:#f2a03d;font-weight:bold");
   console.log(JSON.stringify(session, null, 2));
+  submitSession();
   showOverlay("win");
 }
 

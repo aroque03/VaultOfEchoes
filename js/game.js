@@ -467,6 +467,7 @@ function die(){
   const session = buildSession();
   console.log("%c[VoE] Player died — session snapshot:", "color:#e2554e;font-weight:bold");
   console.log(JSON.stringify(session, null, 2));
+  submitSession();
   stopMusic();
   showOverlay("over");
 }
