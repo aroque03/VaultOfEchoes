@@ -1,5 +1,53 @@
 /* progression.js — Node tracking, player type classification, session export */
 
+let loadedWeights = null;
+
+function loadWeights(){
+  fetch("/api/weights")
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => { if(data && data.explorer) loadedWeights = data; })
+    .catch(() => {
+      fetch("/data/weights.json")
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if(data && data.explorer) loadedWeights = data; })
+        .catch(() => {});
+    });
+}
+
+const DAG_EDGES = {
+  "l1.entry":["l1.room","l1.chest","l1.boss","l1.key"],
+  "l1.room":["l1.key"], "l1.chest":["l1.key"], "l1.boss":["l1.key"],
+  "l1.key":["l1.exit"], "l1.exit":["l2.entry"],
+  "l2.entry":["l2.room","l2.chest","l2.boss","l2.key"],
+  "l2.room":["l2.key"], "l2.chest":["l2.key"], "l2.boss":["l2.key"],
+  "l2.key":["l2.exit"], "l2.exit":["l3.entry"],
+  "l3.entry":["l3.room","l3.chest","l3.boss","l3.greenBoss","l3.key"],
+  "l3.room":["l3.key"], "l3.chest":["l3.key"], "l3.boss":["l3.key"],
+  "l3.greenBoss":["l3.key"], "l3.key":["l3.exit"], "l3.exit":[],
+};
+
+function computeCAIS(playerType){
+  if(!loadedWeights || !playerType) return null;
+  const w = loadedWeights[playerType];
+  if(!w) return null;
+  const done = state.progression.completions.map(c => c.node);
+  let score = 0;
+  for(const node of done) score += (w[node] || 0);
+  return Math.round(score * 100) / 100;
+}
+
+function computePAIS(playerType){
+  if(!loadedWeights || !playerType) return null;
+  const w = loadedWeights[playerType];
+  if(!w) return null;
+  const done = new Set(state.progression.completions.map(c => c.node));
+  const remaining = Object.keys(DAG_EDGES).filter(n => !done.has(n));
+  if(remaining.length === 0) return 0;
+  let total = 0;
+  for(const node of remaining) total += (w[node] || 0);
+  return Math.round((total / remaining.length) * 100) / 100;
+}
+
 function nodeId(phase){ return "l"+(state.levelIdx+1)+"."+phase; }
 
 function completeNode(nid){
@@ -135,6 +183,19 @@ function buildSession(){
     bug_encounters: state.progression.encounters,
     injectedConfig: injectedConfigAll(),
     finalScore: state.score,
+    scoring: (() => {
+      const pt = classifyPlayerType().dominant;
+      const cais = computeCAIS(pt);
+      const pais = computePAIS(pt);
+      if(cais === null) return { weights_loaded: false };
+      return {
+        weights_loaded: true,
+        player_type: pt,
+        weights_used: loadedWeights ? loadedWeights[pt] : null,
+        cais: cais,
+        pais: pais,
+      };
+    })(),
   };
 }
 

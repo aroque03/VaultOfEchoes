@@ -612,6 +612,7 @@ state.sessionId = (()=>{ try { if(crypto && crypto.randomUUID) return crypto.ran
 state.sessionStart = new Date().toISOString();
 state.progression.startTime = Date.now();
 if(SHOW_QA_BADGE && anyBugConfigured()) el("qaBadge").style.display = "";
+loadWeights();
 loadLevel(0);
 draw();
 requestAnimationFrame(loop);

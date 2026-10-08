@@ -272,6 +272,7 @@ function collectGem(gem){
     gem.collected = false;
     gem.phantom = true;
     gem.spawnTime = performance.now();
+    recordEncounter("phantomGem");
   }
   updateHUD();
 }
@@ -291,16 +292,28 @@ function enterHiddenRoom(hr){
   updateHUD();
 }
 
+// ---------- bug encounter tracking ----------
+const BUG_NODE = {wallClip:"entry",phantomWall:"room",phantomGem:"chest",corruptNote:"chest",undeadBoss:"boss",fakeHeal:"key",stuckKey:"key"};
+function recordEncounter(bugType){
+  const node = "l"+(state.levelIdx+1)+"."+BUG_NODE[bugType];
+  if(state.progression.encounters.some(e => e.type===bugType && e.node===node)) return;
+  state.progression.encounters.push({
+    type: bugType, node: node, chamber: state.levelIdx+1,
+    timestamp: new Date().toISOString(),
+    elapsed_ms: Date.now() - state.progression.startTime,
+  });
+}
+
 // ---------- movement ----------
 function isWalkable(x, y){
   const g = state.maze.grid;
   if(!g[y]) return false;
   const t = g[y][x];
   if(t === TILE_FLOOR || t === TILE_PASSAGE){
-    if(state.phantomWallTiles.some(pw => pw.x===x && pw.y===y)) return false;
+    if(state.phantomWallTiles.some(pw => pw.x===x && pw.y===y)){ recordEncounter("phantomWall"); return false; }
     return true;
   }
-  if(state.wallClipTiles.some(wc => wc.x===x && wc.y===y)) return true;
+  if(state.wallClipTiles.some(wc => wc.x===x && wc.y===y)){ recordEncounter("wallClip"); return true; }
   return false;
 }
 
@@ -511,6 +524,7 @@ function swingSword(){
           if(e.buggyUndead){
             e.hp = 1;
             survivors.push(e);
+            recordEncounter("undeadBoss");
           } else {
             state.greenBossAlive = false;
             state.trophy = {x:e.x, y:e.y, collected:false};
@@ -524,6 +538,7 @@ function swingSword(){
           if(e.buggyUndead){
             e.hp = 1;
             survivors.push(e);
+            recordEncounter("undeadBoss");
           } else {
             state.bruteAlive = false;
             state.trophy = {x:e.x, y:e.y, collected:false};
@@ -633,6 +648,7 @@ function onEnterTile(){
      state.px===state.potion.x && state.py===state.potion.y){
     state.potion.collected = true;
     if(state.bugsThisLevel.fakeHeal){
+      recordEncounter("fakeHeal");
       toast("Healed 1 bar");
     } else if(state.hp >= 3){
       toast("Already at full health");
@@ -670,6 +686,7 @@ function onEnterTile(){
   if(state.decoyKey && state.px===state.decoyKey.x && state.py===state.decoyKey.y){
     if(!state.decoyKey.interacted){
       state.decoyKey.interacted = true;
+      recordEncounter("stuckKey");
       toast("A key! But it's jammed — you can't pull it free.");
     }
   }
@@ -686,6 +703,7 @@ function onEnterTile(){
         chest.originalContent = chest.content;
         chest.content = "NullPointerException: Cannot read\nproperty 'text' of undefined\n\n  at NoteRenderer.display (vault.js:847)\n  at ChestManager.open (vault.js:312)\n  at TileEvent.onEnter (vault.js:1104)\n  at GameLoop.step (engine.js:56)";
         state.bugsThisLevel.corruptNote = false;
+        recordEncounter("corruptNote");
       }
       if(!state.notesFound.includes(chest.originalContent || chest.content))
         state.notesFound.push(chest.originalContent || chest.content);

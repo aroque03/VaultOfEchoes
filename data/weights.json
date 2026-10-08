@@ -1,0 +1,17 @@
+{
+  "explorer": {
+    "l1.entry": 1, "l1.room": 1, "l1.chest": 1, "l1.boss": 1, "l1.key": 1, "l1.exit": 1,
+    "l2.entry": 1, "l2.room": 1, "l2.chest": 1, "l2.boss": 1, "l2.key": 1, "l2.exit": 1,
+    "l3.entry": 1, "l3.room": 1, "l3.chest": 1, "l3.boss": 1, "l3.greenBoss": 1, "l3.key": 1, "l3.exit": 1
+  },
+  "achiever": {
+    "l1.entry": 1, "l1.room": 1, "l1.chest": 1, "l1.boss": 1, "l1.key": 1, "l1.exit": 1,
+    "l2.entry": 1, "l2.room": 1, "l2.chest": 1, "l2.boss": 1, "l2.key": 1, "l2.exit": 1,
+    "l3.entry": 1, "l3.room": 1, "l3.chest": 1, "l3.boss": 1, "l3.greenBoss": 1, "l3.key": 1, "l3.exit": 1
+  },
+  "killer": {
+    "l1.entry": 1, "l1.room": 1, "l1.chest": 1, "l1.boss": 1, "l1.key": 1, "l1.exit": 1,
+    "l2.entry": 1, "l2.room": 1, "l2.chest": 1, "l2.boss": 1, "l2.key": 1, "l2.exit": 1,
+    "l3.entry": 1, "l3.room": 1, "l3.chest": 1, "l3.boss": 1, "l3.greenBoss": 1, "l3.key": 1, "l3.exit": 1
+  }
+}
