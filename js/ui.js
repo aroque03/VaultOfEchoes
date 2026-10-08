@@ -329,6 +329,25 @@ function playRoomCue(count){
   o.stop(now + 0.62);
 }
 
+function playHeal(){
+  if(!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.20, now + 0.02);
+  g.connect(audioCtx.destination);
+  const o = audioCtx.createOscillator();
+  o.type = "sine";
+  o.frequency.setValueAtTime(523, now);
+  o.frequency.setValueAtTime(659, now + 0.1);
+  o.frequency.setValueAtTime(784, now + 0.2);
+  o.connect(g);
+  o.start(now);
+  g.gain.setValueAtTime(0.20, now + 0.25);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+  o.stop(now + 0.52);
+}
+
 function playRoomOpen(){
   if(!audioCtx) return;
   const now = audioCtx.currentTime;
@@ -345,6 +364,132 @@ function playRoomOpen(){
   g.gain.setValueAtTime(0.25, now + 0.2);
   g.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
   o.stop(now + 0.52);
+}
+
+// ---------- ambient music ----------
+let ambientNodes = null;
+let musicMuted = false;
+function startMusic(level){
+  stopMusic();
+  if(!audioCtx || musicMuted) return;
+
+  const master = audioCtx.createGain();
+  master.gain.value = 0.18;
+  master.connect(audioCtx.destination);
+
+  // delay for echo
+  const delay = audioCtx.createDelay(1.0);
+  delay.delayTime.value = 0.4;
+  const fb = audioCtx.createGain();
+  fb.gain.value = 0.35;
+  const delayGain = audioCtx.createGain();
+  delayGain.gain.value = 0.25;
+  delay.connect(fb); fb.connect(delay);
+  delay.connect(delayGain); delayGain.connect(master);
+
+  // low drone pad
+  const droneGain = audioCtx.createGain();
+  droneGain.gain.value = 0.12;
+  droneGain.connect(master);
+  const droneFilter = audioCtx.createBiquadFilter();
+  droneFilter.type = "lowpass";
+  droneFilter.frequency.value = 200;
+  droneFilter.connect(droneGain);
+  const droneFreqs = [55, 58.27, 51.91]; // A1, Bb1, Ab1
+  const droneOscs = [];
+  for(let i=0; i<2; i++){
+    const o = audioCtx.createOscillator();
+    o.type = i===0 ? "sawtooth" : "triangle";
+    o.frequency.value = droneFreqs[level % droneFreqs.length] * (i===0 ? 1 : 1.002);
+    o.connect(droneFilter);
+    o.start();
+    droneOscs.push(o);
+  }
+
+  // LFO on drone filter for slow sweep
+  const lfo = audioCtx.createOscillator();
+  lfo.type = "sine";
+  lfo.frequency.value = 0.15;
+  const lfoGain = audioCtx.createGain();
+  lfoGain.gain.value = 80;
+  lfo.connect(lfoGain);
+  lfoGain.connect(droneFilter.frequency);
+  lfo.start();
+
+  // arpeggio sequencer — minor pentatonic
+  const scales = [
+    [130.81,155.56,174.61,196.00,233.08,261.63,311.13],  // C minor pent + octave
+    [138.59,164.81,185.00,207.65,246.94,277.18,329.63],   // Db minor
+    [123.47,146.83,164.81,185.00,220.00,246.94,293.66],   // B minor
+  ];
+  const notes = scales[level % scales.length];
+  const patterns = [
+    [0,2,4,5,3,1,2,4],
+    [0,3,5,4,2,6,3,1],
+    [0,4,2,5,1,3,6,2],
+  ];
+  const pat = patterns[level % patterns.length];
+  const tempo = [0.55, 0.5, 0.45][level % 3];
+  let step = 0;
+  let arpRunning = true;
+
+  function playArpNote(){
+    if(!arpRunning || !audioCtx) return;
+    const freq = notes[pat[step % pat.length]];
+    const now = audioCtx.currentTime;
+
+    const o = audioCtx.createOscillator();
+    o.type = step % 3 === 0 ? "triangle" : "sine";
+    o.frequency.value = freq;
+
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.08, now + 0.03);
+    g.gain.setValueAtTime(0.08, now + tempo * 0.6);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + tempo * 0.95);
+
+    o.connect(g);
+    g.connect(master);
+    g.connect(delay);
+    o.start(now);
+    o.stop(now + tempo);
+
+    // occasional high harmonic
+    if(step % 7 === 3){
+      const h = audioCtx.createOscillator();
+      h.type = "sine";
+      h.frequency.value = freq * 2;
+      const hg = audioCtx.createGain();
+      hg.gain.setValueAtTime(0.0001, now);
+      hg.gain.exponentialRampToValueAtTime(0.03, now + 0.05);
+      hg.gain.setValueAtTime(0.03, now + tempo * 0.5);
+      hg.gain.exponentialRampToValueAtTime(0.0001, now + tempo * 0.9);
+      h.connect(hg); hg.connect(master); hg.connect(delay);
+      h.start(now); h.stop(now + tempo);
+    }
+
+    step++;
+    ambientNodes._timer = setTimeout(playArpNote, tempo * 1000);
+  }
+
+  ambientNodes = {master, droneOscs, lfo, delay, fb, delayGain, droneGain, droneFilter, lfoGain, _timer:null,
+    stop(){ arpRunning = false; clearTimeout(this._timer);
+      droneOscs.forEach(o=>{ try{o.stop();}catch(e){} });
+      try{lfo.stop();}catch(e){}
+      master.disconnect();
+    }};
+  playArpNote();
+}
+
+function stopMusic(){
+  if(ambientNodes){ ambientNodes.stop(); ambientNodes = null; }
+}
+
+function toggleMusic(){
+  musicMuted = !musicMuted;
+  el("musicBtn").textContent = musicMuted ? "♪ OFF" : "♪ ON";
+  if(musicMuted) stopMusic();
+  else if(!state.paused) startMusic(state.levelIdx);
 }
 
 // ---------- toast ----------
@@ -391,6 +536,7 @@ el("bugDesc").addEventListener("input", validateBug);
 el("bugSubmit").addEventListener("click", submitBug);
 el("bugCancel").addEventListener("click", ()=>showOverlay(null));
 el("exportBtn").addEventListener("click", exportBugs);
+el("musicBtn").addEventListener("click", toggleMusic);
 el("winExport").addEventListener("click", exportBugs);
 
 // ---------- login ----------
@@ -427,16 +573,19 @@ el("startBtn").addEventListener("click", ()=>{
   loadLevel(0);
   clearKeys();
   showOverlay(null);
+  startMusic(0);
 });
 el("clueBtn").addEventListener("click", ()=>{ clearKeys(); showOverlay(null); });
 el("levelBtn").addEventListener("click", ()=>{
   if(state.levelIdx >= CHAMBERS.length-1){
+    stopMusic();
     showOverlay(null);
     winGame();
   } else {
     loadLevel(state.levelIdx+1);
     clearKeys();
     showOverlay(null);
+    startMusic(state.levelIdx);
   }
 });
 el("winReplay").addEventListener("click", ()=>{
@@ -444,9 +593,11 @@ el("winReplay").addEventListener("click", ()=>{
   state.notesFound=[]; state.bugs=[]; state.keyFound=false;
   state.score=0;
   loadLevel(0); clearKeys(); showOverlay(null);
+  startMusic(0);
 });
 el("overRetry").addEventListener("click", ()=>{
   loadLevel(state.levelIdx); clearKeys(); showOverlay(null);
+  startMusic(state.levelIdx);
 });
 el("overRestart").addEventListener("click", ()=>{
   state.progression = resetProgression();
