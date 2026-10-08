@@ -82,10 +82,12 @@ const SEV_HINT = {
 // ---------- QA bug injection ----------
 //   per chamber:  ?l1=wall,gem&l2=all&l3=boss
 //   all chambers: ?bugs=wall,gem,boss,room,key   or   ?bugs=all
+const GREEN_BOSS_HP = 5;
+
 const BUGS = {
-  1: { wallClip:false, phantomGem:false, undeadBoss:false, missingNote:false, stuckKey:false },
-  2: { wallClip:false, phantomGem:false, undeadBoss:false, missingNote:false, stuckKey:false },
-  3: { wallClip:false, phantomGem:false, undeadBoss:false, missingNote:false, stuckKey:false },
+  1: { wallClip:false, phantomGem:false, undeadBoss:false, missingNote:false, stuckKey:false, phantomWall:false, fakeHeal:false, corruptNote:false },
+  2: { wallClip:false, phantomGem:false, undeadBoss:false, missingNote:false, stuckKey:false, phantomWall:false, fakeHeal:false, corruptNote:false },
+  3: { wallClip:false, phantomGem:false, undeadBoss:false, missingNote:false, stuckKey:false, phantomWall:false, fakeHeal:false, corruptNote:false },
 };
 (function applyBugQuery(){
   try {
@@ -93,11 +95,14 @@ const BUGS = {
     const setFlags = (lvl, list) => {
       const s = list.map(x=>x.trim()).filter(Boolean);
       const all = s.includes("all") || s.includes("1");
-      if(all || s.includes("wall"))  lvl.wallClip    = true;
-      if(all || s.includes("gem"))   lvl.phantomGem  = true;
-      if(all || s.includes("boss"))  lvl.undeadBoss  = true;
-      if(all || s.includes("room"))  lvl.missingNote = true;
-      if(all || s.includes("key"))   lvl.stuckKey    = true;
+      if(all || s.includes("wall"))    lvl.wallClip    = true;
+      if(all || s.includes("gem"))     lvl.phantomGem  = true;
+      if(all || s.includes("boss"))    lvl.undeadBoss  = true;
+      if(all || s.includes("room"))    lvl.missingNote = true;
+      if(all || s.includes("key"))     lvl.stuckKey    = true;
+      if(all || s.includes("pwall"))   lvl.phantomWall = true;
+      if(all || s.includes("heal"))    lvl.fakeHeal    = true;
+      if(all || s.includes("corrupt")) lvl.corruptNote = true;
     };
     const g = p.get("bugs");
     if(g){ const list = g.toLowerCase().split(","); [1,2,3].forEach(l => setFlags(BUGS[l], list)); }
@@ -123,6 +128,8 @@ const PAL = {
   R:"#e2554e", r:"#ff8888",
   G:"#3da868", F:"#7fffaa",
   B:"#4a7de0", A:"#88bbff",
+  V:"#4ade80", v:"#86efac",
+  H:"#e74c3c", J:"#ff6b6b", j:"#f9f9f9",
 };
 const SPR = {
   player:[
@@ -157,6 +164,12 @@ const SPR = {
   ],
   gemSapphire:[
     "........","...AA...","..ABBA..",".ABBBBA.",".ABBBBA.","..ABBA..","...AA...","........",
+  ],
+  greenBoss:[
+    "V.V..V.V",".VVVVVV.",".ViVViV.",".VVVVVV.",".V.VV.V.",".VVVVVV.",".VV..VV.","V.V..V.V",
+  ],
+  potion:[
+    "........","...jj...","..jHHj..","..HHHH..","..HJJH..","..HHHH..","..jHHj..","...jj...",
   ],
 };
 

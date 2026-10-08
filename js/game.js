@@ -14,7 +14,7 @@ const state = {
   bugsThisLevel:{}, score:0,
   trophy:null, hiddenRooms:[], gems:[], bruteAlive:true,
   hp:3, iFrameUntil:0, projectiles:[],
-  wallClipTile:null, decoyKey:null,
+  wallClipTiles:[], phantomWallTiles:[], decoyKey:null, potion:null,
   progression: {
     completions:[], encounters:[], branchOutcomes:{}, branchAttempts:{},
     startTime:0, enemiesKilled:0, bossKilled:false, swordSwung:false,
@@ -92,7 +92,7 @@ function loadLevel(i){
 
   // Injected defects
   state.bugsThisLevel = BUGS[i+1] || {};
-  state.wallClipTile = null;
+  state.wallClipTiles = [];
   if(state.bugsThisLevel.wallClip){
     const g = state.maze.grid;
     const rng = mulberry32(c.seed ^ 0xBEEF);
@@ -108,14 +108,83 @@ function loadLevel(i){
         if(floorNeighbors >= 2) candidates.push({x,y});
       }
     }
-    if(candidates.length){
-      state.wallClipTile = candidates[Math.floor(rng()*candidates.length)];
+    const clipCount = i + 1;
+    for(let ci=0; ci<clipCount && candidates.length; ci++){
+      const idx = Math.floor(rng()*candidates.length);
+      state.wallClipTiles.push(candidates.splice(idx, 1)[0]);
     }
   }
+
+  // phantomWall: invisible wall on a dead-end floor tile
+  state.phantomWallTiles = [];
+  if(state.bugsThisLevel.phantomWall){
+    const g = state.maze.grid;
+    const rng = mulberry32(c.seed ^ 0xCAFE);
+    const deadEndFloors = [];
+    for(let y=1;y<state.maze.TH-1;y++){
+      for(let x=1;x<state.maze.TW-1;x++){
+        if(g[y][x]!==TILE_FLOOR) continue;
+        if(x===state.plan.startTx&&y===state.plan.startTy) continue;
+        if(x===state.plan.ex&&y===state.plan.ey) continue;
+        let n=0;
+        if(g[y-1][x]===TILE_FLOOR) n++;
+        if(g[y+1][x]===TILE_FLOOR) n++;
+        if(g[y][x-1]===TILE_FLOOR) n++;
+        if(g[y][x+1]===TILE_FLOOR) n++;
+        if(n===1) deadEndFloors.push({x,y});
+      }
+    }
+    const pwCount = (i === 2) ? 3 : 1;
+    for(let pi=0; pi<pwCount && deadEndFloors.length; pi++){
+      const idx = Math.floor(rng()*deadEndFloors.length);
+      state.phantomWallTiles.push(deadEndFloors.splice(idx, 1)[0]);
+    }
+  }
+
   if(state.bugsThisLevel.undeadBoss){
     const boss = state.enemies.find(e => e.tough);
     if(boss) boss.buggyUndead = true;
   }
+
+  // Green Boss (L3 only) — 5 HP, separate node
+  state.greenBossAlive = false;
+  if(i === 2){
+    const rng = mulberry32(c.seed ^ 0xFACE);
+    const g = state.maze.grid;
+    const onPath = new Set();
+    let cur = [state.plan.ex, state.plan.ey];
+    const par = bfs(g, state.plan.startTx, state.plan.startTy).par;
+    while(cur){ onPath.add(cur[0]+","+cur[1]); cur = par[cur[1]][cur[0]]; }
+    const cands = [];
+    for(let y=1;y<state.maze.TH-1;y++){
+      for(let x=1;x<state.maze.TW-1;x++){
+        if(g[y][x]!==TILE_FLOOR) continue;
+        if(onPath.has(x+","+y)) continue;
+        if(x===state.plan.startTx&&y===state.plan.startTy) continue;
+        if(x===state.plan.ex&&y===state.plan.ey) continue;
+        if(state.enemies.some(e=>e.x===x&&e.y===y)) continue;
+        if(state.chests.some(ch=>ch.tx===x&&ch.ty===y)) continue;
+        let adj=0;
+        if(g[y-1][x]===TILE_FLOOR) adj++;
+        if(g[y+1][x]===TILE_FLOOR) adj++;
+        if(g[y][x-1]===TILE_FLOOR) adj++;
+        if(g[y][x+1]===TILE_FLOOR) adj++;
+        if(adj>=2) cands.push({x,y});
+      }
+    }
+    if(cands.length){
+      const spot = cands[Math.floor(rng()*cands.length)];
+      let dx=1, dy=0;
+      if(g[spot.y-1]&&g[spot.y-1][spot.x]===TILE_FLOOR&&g[spot.y+1]&&g[spot.y+1][spot.x]===TILE_FLOOR){ dx=0; dy=1; }
+      const gb = {x:spot.x, y:spot.y, dx, dy, hp:GREEN_BOSS_HP, tough:true, green:true};
+      if(state.bugsThisLevel.undeadBoss) gb.buggyUndead = true;
+      state.enemies.push(gb);
+      state.greenBossAlive = true;
+    }
+  }
+
+  // Potion: drops on first enemy kill (initialized as null)
+  state.potion = null;
   if(state.bugsThisLevel.stuckKey){
     const rng = mulberry32(c.seed ^ 0xDEAD);
     const g = state.maze.grid;
@@ -227,8 +296,11 @@ function isWalkable(x, y){
   const g = state.maze.grid;
   if(!g[y]) return false;
   const t = g[y][x];
-  if(t === TILE_FLOOR || t === TILE_PASSAGE) return true;
-  if(state.wallClipTile && x===state.wallClipTile.x && y===state.wallClipTile.y) return true;
+  if(t === TILE_FLOOR || t === TILE_PASSAGE){
+    if(state.phantomWallTiles.some(pw => pw.x===x && pw.y===y)) return false;
+    return true;
+  }
+  if(state.wallClipTiles.some(wc => wc.x===x && wc.y===y)) return true;
   return false;
 }
 
@@ -427,7 +499,19 @@ function swingSword(){
       state.progression.swordSwung = true;
       e.hp = (e.hp||1) - 1;
       if(e.hp <= 0){
-        if(e.tough){
+        if(e.tough && e.green){
+          killed++;
+          completeNode(nodeId("greenBoss"));
+          markBranchOutcome(nodeId("greenBoss"), "found");
+          if(e.buggyUndead){
+            e.hp = 1;
+            survivors.push(e);
+          } else {
+            state.greenBossAlive = false;
+            state.trophy = {x:e.x, y:e.y, collected:false};
+          }
+          continue;
+        } else if(e.tough){
           killed++;
           state.progression.bossKilled = true;
           completeNode(nodeId("boss"));
@@ -443,13 +527,19 @@ function swingSword(){
         } else {
           killed++;
           state.progression.enemiesKilled++;
+          if(!state.potion && state.progression.enemiesKilled === 1){
+            state.potion = {x:e.x, y:e.y, collected:false};
+          }
           completeNode(nodeId("boss"));
           markBranchOutcome(nodeId("boss"), "found");
           continue;
         }
       } else {
         resisted = true;
-        if(e.tough) markBranchOutcome(nodeId("boss"), "attempted");
+        if(e.tough){
+          const bossNode = e.green ? "greenBoss" : "boss";
+          markBranchOutcome(nodeId(bossNode), "attempted");
+        }
       }
     }
     survivors.push(e);
@@ -533,6 +623,21 @@ function onEnterTile(){
     }
   }
 
+  // Potion pickup
+  if(state.potion && !state.potion.collected &&
+     state.px===state.potion.x && state.py===state.potion.y){
+    state.potion.collected = true;
+    if(state.bugsThisLevel.fakeHeal){
+      toast("Healed 1 bar");
+    } else if(state.hp >= 3){
+      toast("Already at full health");
+    } else {
+      state.hp++;
+      toast("Healed 1 bar");
+    }
+    updateHUD();
+  }
+
   if(state.trophy && !state.trophy.collected &&
      state.px===state.trophy.x && state.py===state.trophy.y){
     state.trophy.collected = true;
@@ -570,7 +675,14 @@ function onEnterTile(){
       state.keyFound = true;
       completeNode(nodeId("key"));
     } else {
-      if(!state.notesFound.includes(chest.content)) state.notesFound.push(chest.content);
+      if(state.bugsThisLevel.corruptNote && !chest.corrupted){
+        chest.corrupted = true;
+        chest.originalContent = chest.content;
+        chest.content = "NullPointerException: Cannot read\nproperty 'text' of undefined\n\n  at NoteRenderer.display (vault.js:847)\n  at ChestManager.open (vault.js:312)\n  at TileEvent.onEnter (vault.js:1104)\n  at GameLoop.step (engine.js:56)";
+        state.bugsThisLevel.corruptNote = false;
+      }
+      if(!state.notesFound.includes(chest.originalContent || chest.content))
+        state.notesFound.push(chest.originalContent || chest.content);
       completeNode(nodeId("room"));
       markBranchOutcome(nodeId("room"), "found");
     }

@@ -28,7 +28,9 @@ function markBranchOutcome(nid, outcome){
 
 function finalizeBranchOutcomes(){
   const lvl = state.levelIdx + 1;
-  for(const phase of ["room","chest","boss"]){
+  const phases = ["room","chest","boss"];
+  if(lvl === 3) phases.push("greenBoss");
+  for(const phase of phases){
     const nid = "l"+lvl+"."+phase;
     if(!state.progression.branchOutcomes[nid]){
       state.progression.branchOutcomes[nid] = "never_approached";

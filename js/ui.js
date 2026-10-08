@@ -68,6 +68,10 @@ function draw(){
     drawSprite(ctx, SPR.chest, state.decoyKey.x*TILE, state.decoyKey.y*TILE, TILE);
   }
 
+  if(state.potion && !state.potion.collected){
+    drawSprite(ctx, SPR.potion, state.potion.x*TILE, state.potion.y*TILE, TILE);
+  }
+
   const gemSprites = {ruby:SPR.gemRuby, emerald:SPR.gemEmerald, sapphire:SPR.gemSapphire};
   for(const gem of state.gems){
     if(!gem.collected && gem.x >= 0){
@@ -105,11 +109,13 @@ function draw(){
       ctx.fillStyle = `rgba(255,60,40,${pulse})`;
       ctx.fillRect(en.x*TILE - 3, en.y*TILE - 3, TILE + 6, TILE + 6);
     }
-    drawSprite(ctx, en.tough ? SPR.brute : SPR.enemy, en.x*TILE, en.y*TILE, TILE);
+    const spr = en.green ? SPR.greenBoss : en.tough ? SPR.brute : SPR.enemy;
+    drawSprite(ctx, spr, en.x*TILE, en.y*TILE, TILE);
     if(en.tough && en.hp>0){
-      const pipW = Math.floor(TILE/(BRUTE_HP+1));
+      const maxHp = en.green ? GREEN_BOSS_HP : BRUTE_HP;
+      const pipW = Math.floor(TILE/(maxHp+1));
       for(let h=0; h<en.hp; h++){
-        ctx.fillStyle = "#e2554e";
+        ctx.fillStyle = en.green ? "#4ade80" : "#e2554e";
         ctx.fillRect(en.x*TILE + 2 + h*(pipW+1), en.y*TILE - 4, pipW, 3);
       }
     }

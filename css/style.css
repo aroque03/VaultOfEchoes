@@ -83,7 +83,7 @@ canvas{
 .overlay{
   position:absolute;inset:0;z-index:5;display:none;
   align-items:center;justify-content:center;padding:16px;
-  background:rgba(6,8,12,.86);
+  background:rgba(6,8,12,.86);overflow-y:auto;
 }
 .overlay.show{display:flex}
 .card{
@@ -145,3 +145,20 @@ ul.clues li{margin-bottom:8px;padding-left:14px;position:relative}
 ul.clues li::before{content:"◆";position:absolute;left:0;color:var(--gold)}
 
 a.dl{color:var(--torch)}
+
+/* larger intro/tutorial overlays */
+#introOverlay .card,
+#tutOverlay .card{
+  max-width:680px;padding:24px 28px;
+}
+#introOverlay .card h2,
+#tutOverlay .card h2{
+  font-size:16px;margin-bottom:16px;
+}
+#introOverlay .card p,
+#tutOverlay .card p{
+  font-size:11px;margin-bottom:12px;line-height:1.9;
+}
+#tutOverlay .tut-controls{
+  font-size:11px;
+}
