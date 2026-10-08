@@ -146,6 +146,14 @@ ul.clues li::before{content:"◆";position:absolute;left:0;color:var(--gold)}
 
 a.dl{color:var(--torch)}
 
+.level-summary{
+  background:var(--stone-0);border:2px solid var(--line);
+  padding:10px 12px;margin:10px 0;font-size:8px;line-height:2;
+}
+.level-summary .row-label{color:var(--iron);display:inline}
+.level-summary .row-val{color:var(--torch);display:inline}
+.level-summary .row-miss{color:var(--danger);display:inline}
+
 /* larger intro/tutorial overlays */
 #introOverlay .card,
 #tutOverlay .card{

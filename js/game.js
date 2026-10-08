@@ -703,11 +703,40 @@ function onEnterTile(){
 function levelComplete(){
   completeNode(nodeId("exit"));
   finalizeBranchOutcomes();
+
+  const lvl = state.levelIdx + 1;
+  const prefix = "l" + lvl + ".";
+  const allNodes = (lvl === 3)
+    ? ["entry","room","chest","boss","greenBoss","key","exit"]
+    : ["entry","room","chest","boss","key","exit"];
+  const done = state.progression.completions
+    .filter(c => c.node.startsWith(prefix))
+    .map(c => c.node.replace(prefix, ""));
+  const missed = allNodes.filter(n => !done.includes(n));
+
+  const bugsThisLvl = state.bugs.filter(b => b.chamber === lvl);
+  const gemsCollected = state.gems.filter(g => g.collected).length;
+  const roomsFound = state.hiddenRooms.filter(r => r.entered).length;
+
+  const labels = {entry:"Entry",room:"Hidden Room",chest:"Gems",boss:"Purple Boss",greenBoss:"Green Boss",key:"Key",exit:"Exit"};
+
+  let html = "";
+  html += `<div><span class="row-label">Completed: </span><span class="row-val">${done.map(n=>labels[n]||n).join(", ")}</span></div>`;
+  if(missed.length) html += `<div><span class="row-label">Missed: </span><span class="row-miss">${missed.map(n=>labels[n]||n).join(", ")}</span></div>`;
+  html += `<div><span class="row-label">Gems: </span><span class="row-val">${gemsCollected}/3</span></div>`;
+  html += `<div><span class="row-label">Hidden rooms: </span><span class="row-val">${roomsFound}/2</span></div>`;
+  html += `<div><span class="row-label">Bugs reported: </span><span class="row-val">${bugsThisLvl.length}</span></div>`;
+  html += `<div><span class="row-label">Score: </span><span class="row-val">${state.score}</span></div>`;
+
+  el("levelSummary").innerHTML = html;
+  el("levelTitle").textContent = `Chamber ${lvl} Cleared`;
+
   if(state.levelIdx < CHAMBERS.length-1){
-    el("levelTitle").textContent = "Chamber Cleared";
     el("levelText").textContent = "The floor opens beneath the door. You descend to the next chamber, deeper into the vault.";
-    showOverlay("level");
+    el("levelBtn").textContent = "DESCEND";
   } else {
-    winGame();
+    el("levelText").textContent = "The final door groans open. Daylight spills into the vault.";
+    el("levelBtn").textContent = "CONTINUE";
   }
+  showOverlay("level");
 }

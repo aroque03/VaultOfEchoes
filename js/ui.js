@@ -429,7 +429,16 @@ el("startBtn").addEventListener("click", ()=>{
   showOverlay(null);
 });
 el("clueBtn").addEventListener("click", ()=>{ clearKeys(); showOverlay(null); });
-el("levelBtn").addEventListener("click", ()=>{ loadLevel(state.levelIdx+1); clearKeys(); showOverlay(null); });
+el("levelBtn").addEventListener("click", ()=>{
+  if(state.levelIdx >= CHAMBERS.length-1){
+    showOverlay(null);
+    winGame();
+  } else {
+    loadLevel(state.levelIdx+1);
+    clearKeys();
+    showOverlay(null);
+  }
+});
 el("winReplay").addEventListener("click", ()=>{
   state.progression = resetProgression();
   state.notesFound=[]; state.bugs=[]; state.keyFound=false;
