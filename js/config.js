@@ -171,6 +171,9 @@ const SPR = {
   potion:[
     "........","...jj...","..jHHj..","..HHHH..","..HJJH..","..HHHH..","..jHHj..","...jj...",
   ],
+  whiteChest:[
+    "........",".CCCCCC.",".CjjjjC.",".CCCCCC.",".jjjjjj.",".jjKKjj.",".jjjjjj.","........",
+  ],
 };
 
 function drawSprite(ctx, spr, px, py, size){

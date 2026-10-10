@@ -15,6 +15,7 @@ const state = {
   trophy:null, hiddenRooms:[], gems:[], bruteAlive:true,
   hp:3, iFrameUntil:0, projectiles:[],
   wallClipTiles:[], phantomWallTiles:[], decoyKey:null, potion:null,
+  inWarpRoom:false, warpReturn:null, warpChest:null, warpHR:null,
   progression: {
     completions:[], encounters:[], branchOutcomes:{}, branchAttempts:{},
     startTime:0, enemiesKilled:0, bossKilled:false, swordSwung:false,
@@ -285,11 +286,61 @@ function isCrackRoomEntered(){
 
 function enterHiddenRoom(hr){
   hr.entered = true;
-  playCoin();
-  toast("You found a hidden room!");
   completeNode(nodeId("room"));
   markBranchOutcome(nodeId("room"), "found");
   updateHUD();
+  enterWarpRoom(hr);
+}
+
+function enterWarpRoom(hr){
+  state.warpReturn = {
+    maze:state.maze, plan:state.plan, px:state.px, py:state.py,
+    enemies:state.enemies, projectiles:state.projectiles,
+    chests:state.chests, gems:state.gems, hiddenRooms:state.hiddenRooms,
+    trophy:state.trophy, decoyKey:state.decoyKey, potion:state.potion,
+    bruteAlive:state.bruteAlive, wallClipTiles:state.wallClipTiles,
+    phantomWallTiles:state.phantomWallTiles,
+  };
+  const W=9, H=7;
+  const grid = [];
+  for(let y=0;y<H;y++){
+    const row = [];
+    for(let x=0;x<W;x++) row.push((x===0||x===W-1||y===0||y===H-1)?TILE_WALL:TILE_FLOOR);
+    grid.push(row);
+  }
+  state.maze = {grid, TW:W, TH:H};
+  state.plan = {startTx:1, startTy:3, ex:-1, ey:-1, chestSpots:[], brute:null, hiddenRooms:[], dist:[]};
+  state.px = 1; state.py = 3;
+  state.enemies = []; state.projectiles = [];
+  state.chests = []; state.gems = []; state.hiddenRooms = [];
+  state.trophy = null; state.decoyKey = null; state.potion = null;
+  state.bruteAlive = false;
+  state.wallClipTiles = []; state.phantomWallTiles = [];
+  state.warpChest = {x:7, y:3, content:hr.note.content, collected:false};
+  state.warpHR = hr;
+  state.inWarpRoom = true;
+  cv.width = W * TILE;
+  cv.height = H * TILE;
+  playWarp();
+  toast("A strange force pulls you in...");
+}
+
+function exitWarpRoom(){
+  playWarp();
+  const r = state.warpReturn;
+  state.maze = r.maze; state.plan = r.plan;
+  state.px = r.px; state.py = r.py;
+  state.enemies = r.enemies; state.projectiles = r.projectiles;
+  state.chests = r.chests; state.gems = r.gems;
+  state.hiddenRooms = r.hiddenRooms;
+  state.trophy = r.trophy; state.decoyKey = r.decoyKey;
+  state.potion = r.potion; state.bruteAlive = r.bruteAlive;
+  state.wallClipTiles = r.wallClipTiles;
+  state.phantomWallTiles = r.phantomWallTiles;
+  state.inWarpRoom = false;
+  state.warpReturn = null; state.warpChest = null; state.warpHR = null;
+  cv.width = state.maze.TW * TILE;
+  cv.height = state.maze.TH * TILE;
 }
 
 // ---------- bug encounter tracking ----------
@@ -607,6 +658,19 @@ function revealAllChests(){
 }
 
 function onEnterTile(){
+  if(state.inWarpRoom){
+    if(state.warpChest && !state.warpChest.collected &&
+       state.px === state.warpChest.x && state.py === state.warpChest.y){
+      state.warpChest.collected = true;
+      state.warpHR.note.collected = true;
+      if(!state.notesFound.includes(state.warpHR.note.content))
+        state.notesFound.push(state.warpHR.note.content);
+      playCoin();
+      openNote(state.warpHR.note.content);
+    }
+    return;
+  }
+
   const {ex,ey} = state.plan;
 
   for(const hr of state.hiddenRooms){
@@ -628,18 +692,7 @@ function onEnterTile(){
 
     if(hr.opened && !hr.entered && state.px === hr.passX && state.py === hr.passY){
       enterHiddenRoom(hr);
-    }
-
-    if(hr.entered && !hr.note.collected &&
-       state.px === hr.note.x && state.py === hr.note.y){
-      if(state.bugsThisLevel.missingNote){
-        toast("The pedestal is empty...");
-      } else {
-        hr.note.collected = true;
-        if(!state.notesFound.includes(hr.note.content)) state.notesFound.push(hr.note.content);
-        openNote(hr.note.content);
-        return;
-      }
+      return;
     }
   }
 
@@ -697,6 +750,7 @@ function onEnterTile(){
     if(chest.type==="key"){
       state.keyFound = true;
       completeNode(nodeId("key"));
+      playKeyCheer();
     } else {
       if(state.bugsThisLevel.corruptNote && !chest.corrupted){
         chest.corrupted = true;

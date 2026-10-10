@@ -49,16 +49,18 @@ function draw(){
           ctx.fillRect(gx+TILE/2-1, gy+4, 2, TILE-8);
         }
       } else {
-        ctx.fillStyle="#1b2130";
+        ctx.fillStyle = state.inWarpRoom ? "#1e1830" : "#1b2130";
         ctx.fillRect(gx,gy,TILE,TILE);
-        ctx.fillStyle="#222a3c";
+        ctx.fillStyle = state.inWarpRoom ? "#2a2240" : "#222a3c";
         ctx.fillRect(gx+4,gy+5,2,2);
         ctx.fillRect(gx+TILE-7,gy+TILE-8,2,2);
       }
     }
   }
 
-  drawSprite(ctx, state.keyFound?SPR.doorOpen:SPR.doorLocked, ex*TILE, ey*TILE, TILE);
+  if(!state.inWarpRoom){
+    drawSprite(ctx, state.keyFound?SPR.doorOpen:SPR.doorLocked, ex*TILE, ey*TILE, TILE);
+  }
 
   for(const c of state.chests){
     if(c.revealed && !c.collected) drawSprite(ctx, SPR.chest, c.tx*TILE, c.ty*TILE, TILE);
@@ -98,6 +100,10 @@ function draw(){
 
   if(state.trophy && !state.trophy.collected){
     drawSprite(ctx, SPR.trophy, state.trophy.x*TILE, state.trophy.y*TILE, TILE);
+  }
+
+  if(state.inWarpRoom && state.warpChest && !state.warpChest.collected){
+    drawSprite(ctx, SPR.whiteChest, state.warpChest.x*TILE, state.warpChest.y*TILE, TILE);
   }
 
   const now = performance.now();
@@ -164,10 +170,12 @@ function loop(t){
     state.lastEnemyMove = t;
   } else {
     handleHeld(t);
-    if(t - state.lastEnemyMove >= ENEMY_INTERVAL){ state.lastEnemyMove = t; stepEnemies(); }
-    stepBossShoot(t);
-    stepProjectiles(t);
-    stepGems(t);
+    if(!state.inWarpRoom){
+      if(t - state.lastEnemyMove >= ENEMY_INTERVAL){ state.lastEnemyMove = t; stepEnemies(); }
+      stepBossShoot(t);
+      stepProjectiles(t);
+      stepGems(t);
+    }
     draw();
   }
   requestAnimationFrame(loop);
@@ -365,6 +373,57 @@ function playRoomOpen(){
   g.gain.setValueAtTime(0.25, now + 0.2);
   g.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
   o.stop(now + 0.52);
+}
+
+function playWarp(){
+  if(!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(0.25, now + 0.05);
+  g.connect(audioCtx.destination);
+  const o = audioCtx.createOscillator();
+  o.type = "sine";
+  o.frequency.setValueAtTime(220, now);
+  o.frequency.exponentialRampToValueAtTime(1760, now + 0.3);
+  o.connect(g);
+  o.start(now);
+  g.gain.setValueAtTime(0.25, now + 0.25);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+  o.stop(now + 0.62);
+  const o2 = audioCtx.createOscillator();
+  o2.type = "triangle";
+  o2.frequency.setValueAtTime(330, now + 0.1);
+  o2.frequency.exponentialRampToValueAtTime(2640, now + 0.4);
+  const g2 = audioCtx.createGain();
+  g2.gain.setValueAtTime(0.0001, now + 0.1);
+  g2.gain.exponentialRampToValueAtTime(0.15, now + 0.15);
+  g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+  g2.connect(audioCtx.destination);
+  o2.connect(g2);
+  o2.start(now + 0.1);
+  o2.stop(now + 0.62);
+}
+
+function playKeyCheer(){
+  if(!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const notes = [523, 659, 784, 1047];
+  notes.forEach((freq, i) => {
+    const t = now + i * 0.1;
+    const o = audioCtx.createOscillator();
+    o.type = "square";
+    o.frequency.setValueAtTime(freq, t);
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
+    g.gain.setValueAtTime(0.18, t + 0.08);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+    g.connect(audioCtx.destination);
+    o.connect(g);
+    o.start(t);
+    o.stop(t + 0.22);
+  });
 }
 
 // ---------- ambient music ----------
@@ -578,7 +637,13 @@ el("startBtn").addEventListener("click", ()=>{
   showOverlay(null);
   startMusic(0);
 });
-el("clueBtn").addEventListener("click", ()=>{ clearKeys(); showOverlay(null); });
+el("clueBtn").addEventListener("click", ()=>{
+  clearKeys();
+  if(state.inWarpRoom){
+    exitWarpRoom();
+  }
+  showOverlay(null);
+});
 el("levelBtn").addEventListener("click", ()=>{
   if(state.levelIdx >= CHAMBERS.length-1){
     stopMusic();
