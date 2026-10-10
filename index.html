@@ -45,8 +45,8 @@
           <label style="font-size:13px;color:#aab;">Last Initial
             <input type="text" id="loginLastInit" maxlength="1" style="display:block;width:60px;margin-top:4px;padding:6px 8px;background:#1b2130;border:1px solid #39435a;color:#eef;border-radius:4px;font-size:14px;text-transform:uppercase;" autocomplete="off">
           </label>
-          <label style="font-size:13px;color:#aab;">Student ID
-            <input type="text" id="loginStudentId" style="display:block;width:100%;margin-top:4px;padding:6px 8px;background:#1b2130;border:1px solid #39435a;color:#eef;border-radius:4px;font-size:14px;" autocomplete="off">
+          <label style="font-size:13px;color:#aab;">Student Email
+            <input type="email" id="loginEmail" style="display:block;width:100%;margin-top:4px;padding:6px 8px;background:#1b2130;border:1px solid #39435a;color:#eef;border-radius:4px;font-size:14px;" autocomplete="off" placeholder="name@university.edu">
           </label>
         </div>
         <p id="loginError" style="color:#e2554e;font-size:13px;display:none;">Please fill in all fields.</p>
@@ -66,7 +66,7 @@
       </div>
     </div>
 
-    <!-- Tutorial -->
+    <!-- Tutorial page 1 -->
     <div class="overlay" id="tutOverlay">
       <div class="card">
         <h2>How to Play</h2>
@@ -78,10 +78,21 @@
         </p>
         <p><b>Goal</b></p>
         <p>Find the <b>key</b> in each chamber and reach the <b>exit door</b> to advance. There are 3 chambers total.</p>
+        <p><b>Health &amp; Combat</b></p>
+        <p>You have <b>3 health points</b> shown as a bar above your character. Enemies patrol the corridors — you take damage by <b>touching them</b> or being <b>hit by their fireballs</b>. Press <b>Space</b> to swing your sword and fight back. Enemies roam the paths which you can defeat. Upon defeating some enemies will drop items.</p>
+        <p><b>Secrets</b></p>
+        <p>Each dungeon holds <b>secret rooms</b> that can be uncovered by <b>visual</b> or <b>audio cues</b>. Pay attention to cracks in the walls and subtle sounds — they reveal hidden passages. These rooms contain <b>secret notes from Wren</b> written before he disappeared. Find them all to uncover the full story.</p>
+        <button class="btn" id="tutNext">NEXT</button>
+      </div>
+    </div>
+
+    <!-- Tutorial page 2 -->
+    <div class="overlay" id="tut2Overlay">
+      <div class="card">
+        <h2>How to Play</h2>
         <p><b>Scoring — max 4,200 points</b></p>
-        <p>Collect <b>gems</b> — 3 appear per level, blinking in and out of the corridors. Grab them before they vanish. Defeat <b>enemies</b> to earn a trophy. Points scale with each chamber, so later levels are worth more.</p>
-        <p><b>Beware: this game contains bugs!</b></p>
-        <p>Some things may not work as expected. When you encounter a bug, press <b>B</b> to open the bug report form. Describe what happened, select a category, and rate how much the bug impacted your enjoyment. Your reports are part of the study — report every bug you find.</p>
+        <p>Collect <b>gems</b> — 3 appear per level, blinking in and out of the corridors. Grab them before they vanish.</p>
+        <p style="border:2px solid var(--torch);padding:10px 12px;background:rgba(242,160,61,0.08);"><b style="text-decoration:underline;">Beware: this game contains bugs!</b><br><br>Some things may not work as expected. When you encounter a bug, press <b>B</b> to open the bug report form. Describe what happened, select a category, and rate how much the bug impacted your enjoyment. Your reports are part of the study — <b>report every bug you find.</b></p>
         <button class="btn" id="startBtn">ENTER THE VAULT</button>
       </div>
     </div>

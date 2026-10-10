@@ -157,6 +157,7 @@ function buildSession(){
     player: {
       id: state.playerId || state.sessionId,
       name: state.playerName || null,
+      email: state.playerEmail || null,
     },
     session: {
       build: "voe-study-1.0",

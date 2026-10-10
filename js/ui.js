@@ -2,8 +2,8 @@
 
 const el = id => document.getElementById(id);
 const overlays = {
-  login:el("loginOverlay"), intro:el("introOverlay"), tut:el("tutOverlay"), clue:el("clueOverlay"),
-  level:el("levelOverlay"), bug:el("bugOverlay"), win:el("winOverlay"),
+  login:el("loginOverlay"), intro:el("introOverlay"), tut:el("tutOverlay"), tut2:el("tut2Overlay"),
+  clue:el("clueOverlay"), level:el("levelOverlay"), bug:el("bugOverlay"), win:el("winOverlay"),
   over:el("overOverlay"),
 };
 function showOverlay(name){
@@ -541,8 +541,8 @@ el("musicBtn").addEventListener("click", toggleMusic);
 el("winExport").addEventListener("click", exportBugs);
 
 // ---------- login ----------
-async function hashPlayerId(firstName, lastInitial, studentId){
-  const raw = `${firstName.trim().toLowerCase()}|${lastInitial.trim().toUpperCase()}|${studentId.trim()}`;
+async function hashPlayerId(firstName, lastInitial, email){
+  const raw = `${firstName.trim().toLowerCase()}|${lastInitial.trim().toUpperCase()}|${email.trim().toLowerCase()}`;
   const buf = new TextEncoder().encode(raw);
   const hash = await crypto.subtle.digest("SHA-256", buf);
   const arr = Array.from(new Uint8Array(hash));
@@ -552,19 +552,21 @@ async function hashPlayerId(firstName, lastInitial, studentId){
 el("loginBtn").addEventListener("click", async ()=>{
   const first = el("loginFirst").value.trim();
   const lastInit = el("loginLastInit").value.trim();
-  const sid = el("loginStudentId").value.trim();
-  if(!first || !lastInit || !sid){
+  const email = el("loginEmail").value.trim();
+  if(!first || !lastInit || !email){
     el("loginError").style.display = "";
     return;
   }
   el("loginError").style.display = "none";
-  state.playerId = await hashPlayerId(first, lastInit, sid);
+  state.playerId = await hashPlayerId(first, lastInit, email);
   state.playerName = first;
+  state.playerEmail = email;
   showOverlay("intro");
 });
 
 // ---------- flow buttons ----------
 el("introNext").addEventListener("click", ()=>{ showOverlay("tut"); });
+el("tutNext").addEventListener("click", ()=>{ showOverlay("tut2"); });
 el("startBtn").addEventListener("click", ()=>{
   ensureAudio();
   state.progression = resetProgression();

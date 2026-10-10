@@ -156,15 +156,18 @@ a.dl{color:var(--torch)}
 
 /* larger intro/tutorial overlays */
 #introOverlay .card,
-#tutOverlay .card{
+#tutOverlay .card,
+#tut2Overlay .card{
   max-width:680px;padding:24px 28px;
 }
 #introOverlay .card h2,
-#tutOverlay .card h2{
+#tutOverlay .card h2,
+#tut2Overlay .card h2{
   font-size:16px;margin-bottom:16px;
 }
 #introOverlay .card p,
-#tutOverlay .card p{
+#tutOverlay .card p,
+#tut2Overlay .card p{
   font-size:11px;margin-bottom:12px;line-height:1.9;
 }
 #tutOverlay .tut-controls{
