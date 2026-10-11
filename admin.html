@@ -87,6 +87,7 @@ tr:last-child td{border-bottom:none}
 </head>
 <body>
 <button class="refresh-btn" onclick="load()">REFRESH</button>
+<button class="refresh-btn" style="margin-right:8px" onclick="exportData()">DOWNLOAD JSON</button>
 <h1>◆ VAULT OF ECHOES — ADMIN</h1>
 <span class="sub">Experiment Dashboard</span>
 
@@ -225,6 +226,24 @@ function card(label, value, unit){
 function barRow(label, value, max, color){
   const pct = (value / max * 100).toFixed(0);
   return '<div class="bar-row"><span class="bar-label">' + label + '</span><div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div><span class="bar-val">' + value + '</span></div>';
+}
+
+async function exportData(){
+  if(!adminKey){ showLogin(); return; }
+  try {
+    const r = await fetch("/api/export", { headers: { "x-admin-key": adminKey } });
+    if(r.status === 401){ showLogin(); return; }
+    if(!r.ok) throw new Error("API returned " + r.status);
+    const blob = await r.blob();
+    const d = new Date().toISOString().slice(0,10);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "vault-sessions-" + d + ".json";
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  } catch(e){
+    alert("Export failed: " + e.message);
+  }
 }
 
 if(adminKey) load(); else showLogin();
