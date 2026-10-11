@@ -10,6 +10,12 @@ async function streamToString(stream) {
 }
 
 module.exports = async function (context, req) {
+  const adminKey = process.env.ADMIN_KEY;
+  if (adminKey && req.headers["x-admin-key"] !== adminKey) {
+    context.res = { status: 401, body: { error: "Unauthorized" } };
+    return;
+  }
+
   const connStr = process.env.STORAGE_CONNECTION_STRING;
   if (!connStr) {
     context.res = { status: 500, body: { error: "Storage not configured" } };

@@ -90,15 +90,42 @@ tr:last-child td{border-bottom:none}
 <h1>◆ VAULT OF ECHOES — ADMIN</h1>
 <span class="sub">Experiment Dashboard</span>
 
-<div id="content"><div class="loading">Loading data...</div></div>
+<div id="auth" style="display:none;margin-top:40px">
+  <label style="font-size:8px;color:var(--dim);letter-spacing:1px">ADMIN PASSWORD</label><br>
+  <input id="pwd" type="password" style="font-family:inherit;font-size:10px;background:var(--surface);color:var(--text);border:2px solid var(--border);padding:8px 12px;margin:8px 0;width:220px" autofocus>
+  <button onclick="unlock()" style="font-family:inherit;font-size:8px;cursor:pointer;color:var(--text);background:var(--surface);border:2px solid var(--border);padding:8px 12px;box-shadow:0 2px 0 #000;letter-spacing:1px">ENTER</button>
+  <div id="authErr" class="error" style="display:none"></div>
+</div>
+<div id="content" style="display:none"><div class="loading">Loading data...</div></div>
 
 <script>
+let adminKey = sessionStorage.getItem("adminKey") || "";
+
+function showLogin(){
+  document.getElementById("auth").style.display = "block";
+  document.getElementById("content").style.display = "none";
+  document.getElementById("pwd").focus();
+}
+
+function unlock(){
+  adminKey = document.getElementById("pwd").value;
+  if(!adminKey){ document.getElementById("authErr").textContent = "Enter a password"; document.getElementById("authErr").style.display = "block"; return; }
+  sessionStorage.setItem("adminKey", adminKey);
+  document.getElementById("auth").style.display = "none";
+  document.getElementById("content").style.display = "block";
+  load();
+}
+
+document.getElementById("pwd").addEventListener("keydown", function(e){ if(e.key === "Enter") unlock(); });
+
 async function load(){
   const el = document.getElementById("content");
+  el.style.display = "block";
   el.innerHTML = '<div class="loading">Loading data...</div>';
 
   try {
-    const r = await fetch("/api/dashboard");
+    const r = await fetch("/api/dashboard", { headers: { "x-admin-key": adminKey } });
+    if(r.status === 401){ sessionStorage.removeItem("adminKey"); adminKey = ""; showLogin(); document.getElementById("authErr").textContent = "Wrong password"; document.getElementById("authErr").style.display = "block"; return; }
     if(!r.ok) throw new Error("API returned " + r.status);
     const d = await r.json();
     render(d);
@@ -200,7 +227,7 @@ function barRow(label, value, max, color){
   return '<div class="bar-row"><span class="bar-label">' + label + '</span><div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div><span class="bar-val">' + value + '</span></div>';
 }
 
-load();
+if(adminKey) load(); else showLogin();
 </script>
 </body>
 </html>
