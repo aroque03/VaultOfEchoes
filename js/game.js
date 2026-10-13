@@ -566,6 +566,7 @@ function swingSword(){
   for(const e of state.enemies){
     if(reach.seen.has(e.x+","+e.y)){
       state.progression.swordSwung = true;
+      playSwordHit();
       e.hp = (e.hp||1) - 1;
       if(e.hp <= 0){
         if(e.tough && e.green){

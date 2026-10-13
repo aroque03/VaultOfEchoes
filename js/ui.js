@@ -432,6 +432,33 @@ function playKeyCheer(){
   });
 }
 
+function playSwordHit(){
+  if(!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const n = audioCtx.createBufferSource();
+  const len = audioCtx.sampleRate * 0.15;
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i=0; i<len; i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/len, 3);
+  n.buffer = buf;
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = "bandpass"; bp.frequency.value = 3200; bp.Q.value = 1.5;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.35, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  n.connect(bp); bp.connect(g); g.connect(audioCtx.destination);
+  n.start(now); n.stop(now + 0.15);
+  const o = audioCtx.createOscillator();
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(800, now);
+  o.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+  const g2 = audioCtx.createGain();
+  g2.gain.setValueAtTime(0.15, now);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  o.connect(g2); g2.connect(audioCtx.destination);
+  o.start(now); o.stop(now + 0.1);
+}
+
 // ---------- ambient music ----------
 let ambientNodes = null;
 let musicMuted = false;
