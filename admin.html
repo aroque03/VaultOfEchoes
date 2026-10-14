@@ -88,8 +88,12 @@ tr:last-child td{border-bottom:none}
 <body>
 <button class="refresh-btn" onclick="load()">REFRESH</button>
 <button class="refresh-btn" style="margin-right:8px" onclick="exportData()">DOWNLOAD JSON</button>
+<button class="refresh-btn" style="margin-right:8px" onclick="downloadWeightsJSON()">DOWNLOAD WEIGHTS</button>
+<button class="refresh-btn" style="margin-right:8px" onclick="showGraphs()">SHOW GRAPHS</button>
 <h1>◆ VAULT OF ECHOES — ADMIN</h1>
 <span class="sub">Experiment Dashboard</span>
+
+<div id="graphs" style="display:none;margin-top:20px"></div>
 
 <div id="auth" style="display:none;margin-top:40px">
   <label style="font-size:8px;color:var(--dim);letter-spacing:1px">ADMIN PASSWORD</label><br>
@@ -136,6 +140,7 @@ async function load(){
 }
 
 function render(d){
+  cachedData = d;
   const el = document.getElementById("content");
   let h = "";
 
@@ -244,6 +249,180 @@ async function exportData(){
   } catch(e){
     alert("Export failed: " + e.message);
   }
+}
+
+// ---------- DAG definition (mirrors progression.js) ----------
+const DAG_EDGES = {
+  "l1.entry":["l1.room","l1.chest","l1.boss","l1.key"],
+  "l1.room":["l1.key"], "l1.chest":["l1.key"], "l1.boss":["l1.key"],
+  "l1.key":["l1.exit"], "l1.exit":["l2.entry"],
+  "l2.entry":["l2.room","l2.chest","l2.boss","l2.key"],
+  "l2.room":["l2.key"], "l2.chest":["l2.key"], "l2.boss":["l2.key"],
+  "l2.key":["l2.exit"], "l2.exit":["l3.entry"],
+  "l3.entry":["l3.room","l3.chest","l3.boss","l3.greenBoss","l3.key"],
+  "l3.room":["l3.key"], "l3.chest":["l3.key"], "l3.boss":["l3.key"],
+  "l3.greenBoss":["l3.key"], "l3.key":["l3.exit"], "l3.exit":[],
+};
+
+const TYPE_COLORS = {explorer:"#5fbf7d", achiever:"#f2a03d", killer:"#e2554e"};
+const TYPE_BG     = {explorer:"#1a2e22", achiever:"#2e2518", killer:"#2e1a1a"};
+
+let cachedData = null;
+
+function downloadWeightsJSON(){
+  if(!cachedData || !cachedData.weights){ alert("No weights data loaded yet. Hit REFRESH first."); return; }
+  const payload = { _exported: new Date().toISOString(), dag_edges: DAG_EDGES };
+  for(const t of ["explorer","achiever","killer"]){
+    payload[t] = cachedData.weights[t] || {};
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url;
+  a.download = "vault-weights-" + new Date().toISOString().slice(0,10) + ".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function showGraphs(){
+  if(!cachedData){ alert("No data loaded yet. Hit REFRESH first."); return; }
+  const el = document.getElementById("graphs");
+  el.style.display = "block";
+  el.innerHTML = "";
+  for(const type of ["explorer","achiever","killer"]){
+    const w = (cachedData.weights && cachedData.weights[type]) || {};
+    const wrap = document.createElement("div");
+    wrap.style.marginBottom = "20px";
+    const title = document.createElement("h2");
+    title.textContent = "Progression DAG — " + type.charAt(0).toUpperCase() + type.slice(1);
+    title.style.cssText = "font-size:10px;color:" + TYPE_COLORS[type] + ";letter-spacing:1px;margin:20px 0 8px";
+    wrap.appendChild(title);
+    const cvs = document.createElement("canvas");
+    cvs.width = 960; cvs.height = 420;
+    cvs.style.cssText = "width:100%;max-width:960px;background:" + TYPE_BG[type] + ";border:2px solid #2c3547;box-shadow:0 3px 0 #000";
+    wrap.appendChild(cvs);
+    const btn = document.createElement("button");
+    btn.className = "refresh-btn";
+    btn.style.cssText = "float:none;margin-top:6px";
+    btn.textContent = "SAVE AS PNG";
+    btn.onclick = (function(c, t){ return function(){
+      const a = document.createElement("a"); a.download = "dag-" + t + ".png"; a.href = c.toDataURL("image/png");
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    };})(cvs, type);
+    wrap.appendChild(btn);
+    el.appendChild(wrap);
+    drawDAG(cvs, w, type);
+  }
+  el.scrollIntoView({behavior:"smooth"});
+}
+
+function drawDAG(cvs, weights, type){
+  const ctx = cvs.getContext("2d");
+  const W = cvs.width, H = cvs.height;
+  const accent = TYPE_COLORS[type];
+
+  // Node positions: 3 levels, each with spine + branches
+  const nodes = {};
+  const levels = [
+    {prefix:"l1", branches:["room","chest","boss"]},
+    {prefix:"l2", branches:["room","chest","boss"]},
+    {prefix:"l3", branches:["room","chest","boss","greenBoss"]},
+  ];
+
+  const colW = W / 3;
+  levels.forEach((lv, li) => {
+    const cx = colW * li + colW / 2;
+    const bCount = lv.branches.length;
+    // Spine: entry at top, key below branches, exit at bottom
+    nodes[lv.prefix+".entry"] = {x: cx, y: 40, label: "entry"};
+    nodes[lv.prefix+".key"]   = {x: cx, y: H - 100, label: "key"};
+    nodes[lv.prefix+".exit"]  = {x: cx, y: H - 40, label: "exit"};
+    // Branches fanned between entry and key
+    const bStartY = 120, bEndY = H - 160;
+    const bSpacing = bCount > 1 ? (colW - 80) / (bCount - 1) : 0;
+    const bStartX = cx - (bCount - 1) * bSpacing / 2;
+    lv.branches.forEach((br, bi) => {
+      const bx = bStartX + bi * bSpacing;
+      const by = (bStartY + bEndY) / 2;
+      nodes[lv.prefix+"."+br] = {x: bx, y: by, label: br};
+    });
+  });
+
+  // Draw edges
+  ctx.lineWidth = 1.5;
+  for(const [from, tos] of Object.entries(DAG_EDGES)){
+    const nf = nodes[from]; if(!nf) continue;
+    for(const to of tos){
+      const nt = nodes[to]; if(!nt) continue;
+      ctx.strokeStyle = "rgba(127,147,184,0.3)";
+      ctx.beginPath();
+      ctx.moveTo(nf.x, nf.y); ctx.lineTo(nt.x, nt.y);
+      ctx.stroke();
+
+      // Weight label on edge midpoint
+      const wVal = weights[from];
+      if(wVal !== undefined){
+        const mx = (nf.x + nt.x) / 2, my = (nf.y + nt.y) / 2;
+        // Offset slightly to avoid overlap
+        const dx = nt.x - nf.x, dy = nt.y - nf.y;
+        const len = Math.sqrt(dx*dx + dy*dy) || 1;
+        const ox = (-dy/len) * 10, oy = (dx/len) * 10;
+      }
+    }
+  }
+
+  // Draw nodes
+  const R = 22;
+  for(const [nid, nd] of Object.entries(nodes)){
+    const wVal = weights[nid];
+    const isSpine = nid.endsWith(".entry") || nid.endsWith(".key") || nid.endsWith(".exit");
+    // Node circle
+    ctx.beginPath();
+    ctx.arc(nd.x, nd.y, R, 0, Math.PI * 2);
+    ctx.fillStyle = isSpine ? "#222a3c" : "#1b2130";
+    ctx.fill();
+    ctx.strokeStyle = isSpine ? accent : "rgba(127,147,184,0.5)";
+    ctx.lineWidth = isSpine ? 2.5 : 1.5;
+    ctx.stroke();
+
+    // Node label
+    ctx.fillStyle = isSpine ? "#e8dcc0" : "#7f93b8";
+    ctx.font = "bold 8px 'Press Start 2P', monospace";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(nd.label, nd.x, nd.y - 2);
+
+    // Weight value below label
+    if(wVal !== undefined){
+      ctx.fillStyle = wVal > 1 ? "#e2554e" : accent;
+      ctx.font = "7px 'Press Start 2P', monospace";
+      ctx.fillText(wVal.toFixed(2), nd.x, nd.y + 10);
+    } else {
+      ctx.fillStyle = "#555";
+      ctx.font = "7px 'Press Start 2P', monospace";
+      ctx.fillText("1.00", nd.x, nd.y + 10);
+    }
+  }
+
+  // Level labels
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  ctx.font = "bold 9px 'Press Start 2P', monospace";
+  levels.forEach((lv, li) => {
+    ctx.fillStyle = accent;
+    ctx.fillText("CHAMBER " + (li+1), colW * li + colW / 2, 8);
+  });
+
+  // Arrow on cross-level edges
+  ctx.strokeStyle = accent; ctx.lineWidth = 2;
+  [["l1.exit","l2.entry"],["l2.exit","l3.entry"]].forEach(([f,t]) => {
+    const nf = nodes[f], nt = nodes[t]; if(!nf || !nt) return;
+    ctx.beginPath(); ctx.moveTo(nf.x, nf.y); ctx.lineTo(nt.x, nt.y); ctx.stroke();
+    const ang = Math.atan2(nt.y - nf.y, nt.x - nf.x);
+    const ax = nt.x - Math.cos(ang) * R, ay = nt.y - Math.sin(ang) * R;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - 8 * Math.cos(ang - 0.4), ay - 8 * Math.sin(ang - 0.4));
+    ctx.lineTo(ax - 8 * Math.cos(ang + 0.4), ay - 8 * Math.sin(ang + 0.4));
+    ctx.closePath(); ctx.fillStyle = accent; ctx.fill();
+  });
 }
 
 if(adminKey) load(); else showLogin();
