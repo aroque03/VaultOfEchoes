@@ -90,6 +90,7 @@ tr:last-child td{border-bottom:none}
 <button class="refresh-btn" style="margin-right:8px" onclick="exportData()">DOWNLOAD JSON</button>
 <button class="refresh-btn" style="margin-right:8px" onclick="downloadWeightsJSON()">DOWNLOAD WEIGHTS</button>
 <button class="refresh-btn" style="margin-right:8px" onclick="showGraphs()">SHOW GRAPHS</button>
+<button class="refresh-btn" style="margin-right:8px" onclick="recomputeWeights()">RECOMPUTE WEIGHTS</button>
 <h1>◆ VAULT OF ECHOES — ADMIN</h1>
 <span class="sub">Experiment Dashboard</span>
 
@@ -248,6 +249,20 @@ async function exportData(){
     document.body.removeChild(a); URL.revokeObjectURL(url);
   } catch(e){
     alert("Export failed: " + e.message);
+  }
+}
+
+async function recomputeWeights(){
+  if(!adminKey){ showLogin(); return; }
+  try {
+    const r = await fetch("/api/recompute", { method: "POST", headers: { "x-admin-key": adminKey } });
+    if(r.status === 401){ showLogin(); return; }
+    if(!r.ok) throw new Error("API returned " + r.status);
+    const d = await r.json();
+    alert("Recomputed: " + d.sessionsProcessed + " sessions, " + d.updatesApplied + " weight updates applied.");
+    load();
+  } catch(e){
+    alert("Recompute failed: " + e.message);
   }
 }
 
