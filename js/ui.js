@@ -20,7 +20,8 @@ function updateHUD(){
   el("hudLevel").textContent = state.levelIdx+1;
   el("hudHP").textContent = state.hp;
   const done = completedThisLevel();
-  el("hudProgress").textContent = `${Math.round(done/7*100)}%`;
+  const total = Object.keys(DAG_EDGES).filter(n => n.startsWith("l"+(state.levelIdx+1)+".")).length;
+  el("hudProgress").textContent = `${Math.round(done/total*100)}%`;
   el("hudKey").textContent = state.keyFound ? "✓" : "✕";
   el("hudKey").className = "key" + (state.keyFound?" on":"");
   el("hudRooms").textContent = roomsFoundThisLevel();

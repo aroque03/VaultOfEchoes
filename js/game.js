@@ -602,8 +602,7 @@ function swingSword(){
           if(!state.potion && state.progression.enemiesKilled === 1){
             state.potion = {x:e.x, y:e.y, collected:false};
           }
-          completeNode(nodeId("boss"));
-          markBranchOutcome(nodeId("boss"), "found");
+          // Regular enemies are not the boss branch; they only feed the killer engagement tier.
           continue;
         }
       } else {
@@ -765,10 +764,9 @@ function onEnterTile(){
         state.bugsThisLevel.corruptNote = false;
         recordEncounter("corruptNote");
       }
+      // Main-path note chests are not the hidden-room branch; only enterHiddenRoom() completes it.
       if(!state.notesFound.includes(chest.originalContent || chest.content))
         state.notesFound.push(chest.originalContent || chest.content);
-      completeNode(nodeId("room"));
-      markBranchOutcome(nodeId("room"), "found");
     }
     updateHUD();
     openChest(chest);
