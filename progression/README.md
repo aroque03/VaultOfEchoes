@@ -1,7 +1,9 @@
 # progression — CAIS/PAIS scoring for the Vault of Echoes study
 
-Computes Completed and Potential Achievement Impact Scores from a study session
-JSON, under all three Bartle weight sets at once.
+The authoritative CAIS/PAIS implementation for the study. Scores every bug
+report at the moment it was filed, under all three measured weight sets
+(explorer, achiever, killer) at once. The in-game numbers in a session's
+`scoring` block are a debug aid only.
 
 Stdlib only, no install step, no dependencies. Tested on the macOS system
 Python (3.9). The point is that this still runs unchanged when you come back to
@@ -9,44 +11,51 @@ it after writing the paper.
 
 ## Use
 
-    python3 progression/cli.py progression/fixtures/sample-session.json
-    python3 progression/cli.py session.json --verify       # check closed form vs enumeration
-    python3 progression/cli.py session.json --asymmetric   # sensitivity weight set
-    python3 progression/cli.py session.json --json         # machine-readable
+Weights come from the admin page's **DOWNLOAD WEIGHTS** (or `_weights.json`):
+the mean Phase 1 severity per node per player type. Sessions can be a single
+session file or the **DOWNLOAD JSON** export (an array of sessions).
+
+    python3 progression/cli.py session.json --weights weights.json
+    python3 progression/cli.py vault-sessions.json --weights weights.json --csv reports.csv
+    python3 progression/cli.py session.json --weights weights.json --verify   # closed form vs enumeration
+    python3 progression/cli.py session.json --weights weights.json --json     # machine-readable
 
     python3 -m unittest discover -s progression/tests -t progression
+
+`--csv` writes the Phase 2 analysis table: one row per bug report with the
+player's id, phase, classified type, impact rating, and CAIS/PAIS under each of
+the three weight sets.
 
 ## Files
 
 | File | What it holds |
 |---|---|
-| `model.py` | the 21 nodes, the three weight sets, the DAG edges |
+| `model.py` | the 19 nodes, the DAG edges, weight loading |
 | `scoring.py` | CAIS, PAIS (closed form + enumeration), prioritisation |
-| `session.py` | session JSON loader, tolerant, warns instead of failing |
-| `cli.py` | the command line report |
-| `tests/` | 26 tests, including the pinned worked example |
-
-Weights live only in `model.py`. Edit them there and every score moves; nothing
-else needs touching. That is deliberate — the spec asks that CAIS and PAIS be
-computed offline precisely so the weights stay revisable after the study has run.
+| `session.py` | session JSON loader (game schema + export arrays), tolerant, warns instead of failing |
+| `cli.py` | the command line report and CSV export |
+| `fixtures/` | a sample session in the game's format and illustrative (not real) weights |
+| `tests/` | 26 tests, including a hand-pinned worked example |
 
 ## The model in one paragraph
 
-21 nodes plus start and end: 12 spine (mandatory) and 9 branch (optional), four
-and three per level across three levels. Spine weights are identical across all
-three weight sets; branch weights are a permutation of {13, 3, 2} with each
-type's own branch at 13. Every set therefore totals 126 over a full run, so raw
-CAIS is comparable across types without normalisation.
+19 nodes plus start and end, matching the game's DAG (`js/progression.js`):
+9 spine (mandatory: entry, key, exit per level) and 10 branch (optional: room,
+chest, boss per level, plus the green boss in level 3). Each branch is tied to a
+Bartle type — room/explorer, chest/achiever, boss and green boss/killer.
+Weights are measured, not assigned: Phase 1 attributes each report's severity to
+the node(s) after the player's last completed node, and a node's weight is the
+mean (`api/shared/weights.js`). Nodes nobody reported against keep a placeholder
+weight of 1 — check `_counts` in the weights file.
 
 ## Two decisions worth knowing about
 
-**PAIS averages over completion sets, not path orderings.** Modelling the three
-branches as parallel edges would make a naive DFS enumerate 49 orderings per
-level — 24 of them for "did everything", 1 for "went straight out" — inflating
-PAIS toward full completion for purely combinatorial reasons. Each optional node
-instead gets a bypass edge in a fixed arbitrary order, so enumeration yields
-exactly one path per subset (8 per level, 512 per run). Ordering cannot change a
-score anyway, since achievements are one-time and weights sum.
+**PAIS averages over completion sets, not path orderings.** Modelling the
+branches as parallel edges would make a naive DFS enumerate every ordering of
+them, inflating PAIS toward full completion for purely combinatorial reasons.
+Each optional node instead gets a bypass edge in a fixed arbitrary order, so
+enumeration yields exactly one path per subset (1024 for a full run). Ordering
+cannot change a score anyway, since achievements are one-time and weights sum.
 
 That gives a closed form, which is what `pais()` actually evaluates:
 
@@ -70,8 +79,5 @@ complete every branch — which is exactly what the Bartle typing says is false.
 Conditioning path probability on player type is the natural extension and
 belongs in Limitations either way.
 
-Relatedly, a player who finds no branches scores identically under all three
-weight sets (`test_zero_branch_players_score_identically_under_every_set`). That
-is the honest null rather than a bug: no branch behaviour, no differentiated
-prediction. It does mean statistical power depends directly on branch discovery
-rates.
+Measured weight sets also have different totals, so raw CAIS is not directly
+comparable across player types; `score()` returns `cais_pct` for that.

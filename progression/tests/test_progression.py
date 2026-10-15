@@ -5,21 +5,29 @@ Run:  python3 -m unittest discover -s progression/tests -t progression -v
 
 from __future__ import annotations
 
+import csv
 import itertools
+import json
 import os
 import sys
+import tempfile
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+HERE = os.path.dirname(os.path.abspath(__file__))
+PKG = os.path.dirname(HERE)
+sys.path.insert(0, PKG)
 
 from model import (  # noqa: E402
     BRANCH_NODES,
-    BRANCH_WEIGHTS,
+    EDGES,
+    END,
     NODES,
     PLAYER_TYPES,
     SPINE_NODES,
-    all_weight_sets,
-    node_id,
+    START,
+    WeightSet,
+    load_weights,
+    weight_sets_from_dict,
 )
 from scoring import (  # noqa: E402
     cais,
@@ -29,67 +37,95 @@ from scoring import (  # noqa: E402
     reachable_nodes,
     remaining_paths,
 )
-from session import parse  # noqa: E402
+from session import load_all, parse  # noqa: E402
+import cli  # noqa: E402
+
+SAMPLE_WEIGHTS = os.path.join(PKG, "fixtures", "sample-weights.json")
+SAMPLE_SESSION = os.path.join(PKG, "fixtures", "sample-session.json")
+
+# Hand-checkable weights: spine 2, room 4, chest 3, boss 1, greenBoss 1.5.
+PHASE_W = {"entry": 2.0, "key": 2.0, "exit": 2.0,
+           "room": 4.0, "chest": 3.0, "boss": 1.0, "greenBoss": 1.5}
+SIMPLE = WeightSet("explorer", {n: PHASE_W[v.phase] for n, v in NODES.items()})
+
+
+def sample_sets():
+    return load_weights(SAMPLE_WEIGHTS)
 
 
 class TestNodeModel(unittest.TestCase):
-    def test_counts_match_the_spec(self):
-        self.assertEqual(len(NODES), 21)
-        self.assertEqual(len(SPINE_NODES), 12)
-        self.assertEqual(len(BRANCH_NODES), 9)
+    def test_counts_match_the_game(self):
+        self.assertEqual(len(NODES), 19)
+        self.assertEqual(len(SPINE_NODES), 9)
+        self.assertEqual(len(BRANCH_NODES), 10)
 
-    def test_all_weights_are_fibonacci(self):
-        fib = {1, 2, 3, 5, 8, 13, 21}
-        for ws in all_weight_sets().values():
-            for nid, w in ws.weights.items():
-                self.assertIn(w, fib, "{} has non-Fibonacci weight {}".format(nid, w))
+    def test_node_ids_match_the_game_dag(self):
+        # Same ids as DAG_EDGES in js/progression.js and api/shared/weights.js.
+        expected = {"l{}.{}".format(lv, p) for lv in (1, 2)
+                    for p in ("entry", "room", "chest", "boss", "key", "exit")}
+        expected |= {"l3." + p for p in
+                     ("entry", "room", "chest", "boss", "greenBoss", "key", "exit")}
+        self.assertEqual(set(NODES), expected)
+
+    def test_green_boss_is_a_killer_branch(self):
+        self.assertFalse(NODES["l3.greenBoss"].mandatory)
+        self.assertEqual(NODES["l3.greenBoss"].player_type, "killer")
+
+    def test_edges_form_a_dag_from_start_to_end(self):
+        seen, stack = set(), [START]
+        while stack:
+            n = stack.pop()
+            if n in seen:
+                continue
+            seen.add(n)
+            stack.extend(EDGES[n])
+        self.assertEqual(seen, set(NODES) | {START, END})
 
 
-class TestWeightSets(unittest.TestCase):
-    def test_spine_is_identical_across_types(self):
-        sets = all_weight_sets()
-        for nid in SPINE_NODES:
-            vals = {sets[t].weight(nid) for t in PLAYER_TYPES}
-            self.assertEqual(len(vals), 1, "spine node {} differs across types".format(nid))
+class TestWeights(unittest.TestCase):
+    def test_loads_sample_file_with_counts(self):
+        sets = sample_sets()
+        self.assertEqual(set(sets), set(PLAYER_TYPES))
+        self.assertEqual(sets["explorer"].weight("l1.room"), 4.5)
+        self.assertEqual(sets["killer"].counts["l3.greenBoss"], 4)
 
-    def test_totals_are_equal_so_no_normalisation_is_needed(self):
-        totals = {t: ws.total() for t, ws in all_weight_sets().items()}
-        self.assertEqual(set(totals.values()), {126}, totals)
+    def test_accepts_weights_without_counts(self):
+        data = {t: {n: 1 for n in NODES} for t in PLAYER_TYPES}
+        sets = weight_sets_from_dict(data)
+        self.assertIsNone(sets["achiever"].counts)
 
-    def test_branch_weights_are_a_permutation_of_one_multiset(self):
-        multisets = {tuple(sorted(v.values())) for v in BRANCH_WEIGHTS.values()}
-        self.assertEqual(len(multisets), 1)
-        self.assertEqual(multisets.pop(), (2, 3, 13))
+    def test_missing_nodes_are_rejected(self):
+        partial = {n: 1 for n in NODES if n != "l3.greenBoss"}
+        with self.assertRaises(ValueError) as ctx:
+            WeightSet("explorer", partial)
+        self.assertIn("l3.greenBoss", str(ctx.exception))
 
-    def test_each_type_values_its_own_branch_most(self):
-        for t, ws in all_weight_sets().items():
-            own = [n for n in BRANCH_NODES if NODES[n].player_type == t]
-            other = [n for n in BRANCH_NODES if NODES[n].player_type != t]
-            self.assertTrue(
-                min(ws.weight(n) for n in own) > max(ws.weight(n) for n in other)
-            )
+    def test_ignores_extra_keys_like_metadata(self):
+        data = {t: {n: 2 for n in NODES} for t in PLAYER_TYPES}
+        data["_computed_at"] = "2026-10-14T00:00:00Z"
+        data["explorer"]["l2.nav"] = 99  # stale node from an old model
+        self.assertEqual(weight_sets_from_dict(data)["explorer"].total(), 2 * 19)
 
 
 class TestReachability(unittest.TestCase):
     def test_skipped_branches_are_lost_once_a_level_closes(self):
-        done = ["l1.entry", "l1.nav", "l1.key", "l1.exit"]
+        done = ["l1.entry", "l1.key", "l1.exit"]
         reach = reachable_nodes(done)
         self.assertNotIn("l1.room", reach, "level 1 branches survived its exit")
         self.assertNotIn("l1.chest", reach)
         self.assertIn("l2.room", reach)
-        self.assertEqual(len(reach), 14)
+        self.assertEqual(len(reach), 13)
 
     def test_open_level_keeps_all_its_incomplete_nodes(self):
         # Branch completed out of enumeration-chain order: chest before room.
-        done = ["l1.entry", "l1.nav", "l1.chest"]
+        done = ["l1.entry", "l1.chest"]
         self.assertIn("l1.room", reachable_nodes(done))
 
     def test_nothing_reachable_once_finished(self):
         every = list(NODES)
         self.assertEqual(reachable_nodes(every), ())
-        for ws in all_weight_sets().values():
-            self.assertEqual(pais(every, ws), 0.0)
-            self.assertEqual(cais(every, ws), 126)
+        self.assertEqual(pais(every, SIMPLE), 0.0)
+        self.assertEqual(cais(every, SIMPLE), SIMPLE.total())
 
 
 class TestPAIS(unittest.TestCase):
@@ -98,37 +134,38 @@ class TestPAIS(unittest.TestCase):
     def _states(self):
         """A spread of realistic progression states."""
         order = [
-            "l1.entry", "l1.nav", "l1.room", "l1.chest", "l1.boss", "l1.key", "l1.exit",
-            "l2.entry", "l2.nav", "l2.boss", "l2.key", "l2.exit",
-            "l3.entry", "l3.nav", "l3.room", "l3.key", "l3.exit",
+            "l1.entry", "l1.room", "l1.chest", "l1.boss", "l1.key", "l1.exit",
+            "l2.entry", "l2.boss", "l2.key", "l2.exit",
+            "l3.entry", "l3.greenBoss", "l3.room", "l3.key", "l3.exit",
         ]
         return [order[:i] for i in range(len(order) + 1)]
 
     def test_closed_form_matches_enumeration(self):
-        for ws in all_weight_sets().values():
+        for ws in list(sample_sets().values()) + [SIMPLE]:
             for done in self._states():
                 self.assertAlmostEqual(
                     pais(done, ws), pais_by_enumeration(done, ws), places=9,
                     msg="{} after {} nodes".format(ws.player_type, len(done)),
                 )
 
-    def test_closed_form_matches_enumeration_on_every_branch_subset(self):
-        """Exhaustive over level 1: all 8 branch subsets, key found or not."""
-        ws = all_weight_sets()["achiever"]
-        branches = ["l1.room", "l1.chest", "l1.boss"]
-        for k in range(4):
+    def test_closed_form_matches_enumeration_on_every_level3_subset(self):
+        """Exhaustive over level 3: all 16 branch subsets, key found or not."""
+        ws = sample_sets()["killer"]
+        opened = ["l1.entry", "l1.key", "l1.exit", "l2.entry", "l2.key", "l2.exit", "l3.entry"]
+        branches = ["l3.room", "l3.chest", "l3.boss", "l3.greenBoss"]
+        for k in range(5):
             for subset in itertools.combinations(branches, k):
-                for tail in ([], ["l1.key"]):
-                    done = ["l1.entry", "l1.nav"] + list(subset) + tail
+                for tail in ([], ["l3.key"]):
+                    done = opened + list(subset) + tail
                     self.assertAlmostEqual(
                         pais(done, ws), pais_by_enumeration(done, ws), places=9
                     )
 
     def test_path_count_is_one_per_subset_not_per_ordering(self):
-        # Fresh run: 3 levels x 3 optional branches = 2^9 completion subsets.
-        self.assertEqual(len(remaining_paths([])), 512)
-        # One level in, 6 branches left.
-        self.assertEqual(len(remaining_paths(["l1.entry", "l1.nav", "l1.key", "l1.exit"])), 64)
+        # Fresh run: 3 + 3 + 4 optional branches = 2^10 completion subsets.
+        self.assertEqual(len(remaining_paths([])), 1024)
+        # Level 1 closed: 3 + 4 branches left.
+        self.assertEqual(len(remaining_paths(["l1.entry", "l1.key", "l1.exit"])), 128)
 
     def test_every_optional_node_lies_on_exactly_half_the_paths(self):
         paths = remaining_paths([])
@@ -137,99 +174,102 @@ class TestPAIS(unittest.TestCase):
             self.assertEqual(hits, len(paths) // 2, nid)
 
     def test_pais_is_monotonically_non_increasing(self):
-        for ws in all_weight_sets().values():
+        for ws in sample_sets().values():
             vals = [pais(d, ws) for d in self._states()]
             for a, b in zip(vals, vals[1:]):
                 self.assertLessEqual(b, a)
 
     def test_cais_plus_pais_bounds(self):
         """A player can never have banked plus expect more than the maximum."""
-        for ws in all_weight_sets().values():
+        for ws in sample_sets().values():
             for done in self._states():
-                self.assertLessEqual(cais(done, ws) + pais(done, ws), ws.total())
-
-
-class TestWeightSetDivergence(unittest.TestCase):
-    def test_zero_branch_players_score_identically_under_every_set(self):
-        """The designed null: no branch behaviour means no differentiated claim."""
-        done = ["l1.entry", "l1.nav", "l1.key", "l1.exit", "l2.entry", "l2.nav"]
-        sets = all_weight_sets()
-        caises = {sets[t].player_type: cais(done, sets[t]) for t in PLAYER_TYPES}
-        self.assertEqual(len(set(caises.values())), 1, caises)
-
-    def test_branch_completion_separates_the_sets(self):
-        done = ["l1.entry", "l1.nav", "l1.room", "l1.key", "l1.exit"]
-        sets = all_weight_sets()
-        self.assertGreater(cais(done, sets["explorer"]), cais(done, sets["achiever"]))
-        self.assertGreater(cais(done, sets["explorer"]), cais(done, sets["killer"]))
+                self.assertLessEqual(cais(done, ws) + pais(done, ws), ws.total() + 1e-9)
 
 
 class TestWorkedExample(unittest.TestCase):
-    """The example in the design discussion, pinned so the numbers cannot drift."""
+    """Pinned by hand with SIMPLE weights so the numbers cannot drift.
 
-    DONE = ["l1.entry", "l1.nav", "l1.key", "l1.exit", "l2.entry", "l2.nav", "l2.room"]
+    Done: l1 spine (2+2+2) + l2.entry (2) + l2.room (4)            -> CAIS 12
+    Left: L1 closed. Mandatory l2.key, l2.exit, l3 entry/key/exit -> 10
+          Optional l2 chest 3, boss 1; l3 room 4, chest 3, boss 1, greenBoss 1.5
+          -> 13.5 / 2 = 6.75                                       -> PAIS 16.75
+    """
+
+    DONE = ["l1.entry", "l1.key", "l1.exit", "l2.entry", "l2.room"]
 
     def test_values(self):
-        sets = all_weight_sets()
-        expected = {
-            "explorer": (45, 51.5),
-            "achiever": (34, 57.0),
-            "killer": (34, 57.0),
-        }
-        for t, (c, p) in expected.items():
-            self.assertEqual(cais(self.DONE, sets[t]), c, t)
-            self.assertAlmostEqual(pais(self.DONE, sets[t]), p, places=9, msg=t)
+        self.assertEqual(cais(self.DONE, SIMPLE), 12)
+        self.assertAlmostEqual(pais(self.DONE, SIMPLE), 16.75, places=9)
+        self.assertAlmostEqual(pais_by_enumeration(self.DONE, SIMPLE), 16.75, places=9)
 
 
 class TestPrioritisation(unittest.TestCase):
     def test_sorts_by_cais_then_pais_descending(self):
         reports = [
-            {"bug_id": "late", "completed_nodes": ["l1.entry", "l1.nav", "l1.key", "l1.exit", "l2.entry"]},
+            {"bug_id": "late", "completed_nodes": ["l1.entry", "l1.key", "l1.exit", "l2.entry"]},
             {"bug_id": "early", "completed_nodes": ["l1.entry"]},
-            {"bug_id": "mid", "completed_nodes": ["l1.entry", "l1.nav", "l1.key"]},
+            {"bug_id": "mid", "completed_nodes": ["l1.entry", "l1.key"]},
         ]
-        ranked = prioritize(reports, all_weight_sets()["killer"])
+        ranked = prioritize(reports, SIMPLE)
         self.assertEqual([r["bug_id"] for r in ranked], ["late", "mid", "early"])
 
     def test_pais_breaks_cais_ties(self):
         """Equal CAIS, different futures.
 
-        The explorer weights give both players 24 banked. But the rusher took
-        the key and left, burning level 1's three branches for good; the
-        wanderer is still inside level 1 with everything ahead of them. Equal
-        CAIS, so PAIS decides -- and the wanderer, who stands to lose more,
-        outranks the rusher.
+        Both players have 6 banked. The rusher took the key and left, burning
+        level 1's branches for good; the wanderer is still inside level 1 with
+        everything ahead. Equal CAIS, so PAIS decides -- and the wanderer, who
+        stands to lose more, outranks the rusher.
         """
-        ws = all_weight_sets()["explorer"]
-        rusher = {"bug_id": "rusher",
-                  "completed_nodes": ["l1.entry", "l1.nav", "l1.key", "l1.exit"]}
-        wanderer = {"bug_id": "wanderer",
-                    "completed_nodes": ["l1.entry", "l1.nav", "l1.room", "l1.chest"]}
-        ranked = prioritize([rusher, wanderer], ws)
+        rusher = {"bug_id": "rusher", "completed_nodes": ["l1.entry", "l1.key", "l1.exit"]}
+        wanderer = {"bug_id": "wanderer", "completed_nodes": ["l1.entry", "l1.room"]}
+        ranked = prioritize([rusher, wanderer], SIMPLE)
         self.assertEqual(ranked[0]["cais"], ranked[1]["cais"], "fixture no longer ties on CAIS")
-        self.assertEqual(ranked[0]["cais"], 24)
+        self.assertEqual(ranked[0]["cais"], 6)
         self.assertGreater(ranked[0]["pais"], ranked[1]["pais"])
         self.assertEqual(ranked[0]["bug_id"], "wanderer")
 
 
 class TestSessionLoader(unittest.TestCase):
+    def test_reads_the_game_schema(self):
+        sess = load_all(SAMPLE_SESSION)[0]
+        self.assertEqual(sess.player_id, "P07")
+        self.assertEqual(sess.classified_type, "explorer")
+        self.assertEqual(sess.study_phase, 2)
+        self.assertEqual(len(sess.node_completions), 12)
+        self.assertEqual(sess.branch_outcomes["l3.greenBoss"], "never_approached")
+
+    def test_reads_an_export_array(self):
+        with open(SAMPLE_SESSION) as fh:
+            one = json.load(fh)
+        legacy = dict(one)
+        del legacy["study_phase"]
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+            json.dump([dict(one, _blob="a/1.json"), dict(legacy, _blob="b/1.json")], fh)
+        try:
+            sessions = load_all(fh.name)
+        finally:
+            os.unlink(fh.name)
+        self.assertEqual([s.source for s in sessions], ["a/1.json", "b/1.json"])
+        self.assertEqual([s.study_phase for s in sessions], [2, 1], "missing phase must mean 1")
+
     def test_reconstructs_completed_nodes_from_timestamps(self):
         data = {
             "schema": "vault-of-echoes.study-session/v1",
-            "node_completions": [
+            "progression_graph": {"node_completions": [
                 {"node": "l1.entry", "timestamp": "2026-09-23T10:00:00Z"},
-                {"node": "l1.nav", "timestamp": "2026-09-23T10:05:00Z"},
+                {"node": "l1.room", "timestamp": "2026-09-23T10:05:00Z"},
                 {"node": "l1.key", "timestamp": "2026-09-23T10:20:00Z"},
-            ],
+            ]},
             "bug_reports": [{"bug_id": "b1", "timestamp": "2026-09-23T10:06:00Z"}],
         }
         sess = parse(data)
-        self.assertEqual(sess.bug_reports[0]["completed_nodes"], ["l1.entry", "l1.nav"])
+        self.assertEqual(sess.bug_reports[0]["completed_nodes"], ["l1.entry", "l1.room"])
         self.assertTrue(any("reconstructed" in w for w in sess.warnings))
 
     def test_flags_unknown_nodes_and_bad_ratings(self):
         sess = parse({
-            "node_completions": [{"node": "l9.entry", "timestamp": "x"}],
+            "node_completions": [{"node": "l1.nav", "timestamp": "x"}],
             "bug_reports": [{"bug_id": "b1", "impact_rating": 7, "completed_nodes": ["nope"]}],
         })
         joined = " ".join(sess.warnings)
@@ -237,28 +277,29 @@ class TestSessionLoader(unittest.TestCase):
         self.assertIn("out of range", joined)
         self.assertIn("unknown nodes", joined)
 
-    def test_counts_unreported_encounters(self):
+    def test_counts_only_explicitly_unreported_encounters(self):
         sess = parse({"bug_encounters": [
             {"bug_id": "a", "reported": True}, {"bug_id": "b", "reported": False},
+            {"type": "wallClip", "node": "l1.entry"},  # game format: no flag yet
         ]})
         self.assertEqual(len(sess.unreported_encounters()), 1)
 
 
-class TestAsymmetricSensitivitySet(unittest.TestCase):
-    def test_loads_and_still_favours_own_branch(self):
-        for t, ws in all_weight_sets(asymmetric=True).items():
-            own = [n for n in BRANCH_NODES if NODES[n].player_type == t]
-            other = [n for n in BRANCH_NODES if NODES[n].player_type != t]
-            self.assertTrue(min(ws.weight(n) for n in own) > max(ws.weight(n) for n in other))
-
-    def test_totals_differ_so_normalisation_matters_here(self):
-        totals = {t: ws.total() for t, ws in all_weight_sets(asymmetric=True).items()}
-        self.assertGreater(len(set(totals.values())), 1, totals)
-
-    def test_closed_form_still_matches_enumeration(self):
-        for ws in all_weight_sets(asymmetric=True).values():
-            done = ["l1.entry", "l1.nav", "l1.room", "l1.key", "l1.exit", "l2.entry"]
-            self.assertAlmostEqual(pais(done, ws), pais_by_enumeration(done, ws), places=9)
+class TestCSV(unittest.TestCase):
+    def test_one_row_per_report_with_scores_for_every_type(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "reports.csv")
+            cli.main([SAMPLE_SESSION, "--weights", SAMPLE_WEIGHTS, "--csv", out])
+            with open(out, newline="") as fh:
+                rows = list(csv.DictReader(fh))
+        self.assertEqual(len(rows), 3)
+        first = rows[0]
+        self.assertEqual(first["bug_id"], "b-1-l1")
+        self.assertEqual(first["study_phase"], "2")
+        self.assertEqual(float(first["cais_explorer"]), 2.0)
+        self.assertAlmostEqual(float(first["pais_explorer"]), 32.25)
+        for t in PLAYER_TYPES:
+            self.assertIn("pais_" + t, first)
 
 
 if __name__ == "__main__":

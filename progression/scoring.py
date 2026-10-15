@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import Dict, Iterable, List, Sequence, Set, Tuple
 
-from model import BRANCH_NODES, LEVELS, NODES, PHASE_ORDER, WeightSet, node_id
+from model import LEVELS, NODES, WeightSet, level_nodes, node_id
 
 
 def closed_levels(completed: "Iterable[str]") -> "Set[int]":
@@ -40,14 +40,13 @@ def reachable_nodes(completed: "Iterable[str]") -> "Tuple[str, ...]":
     for lv in LEVELS:
         if lv in shut:
             continue
-        for phase in PHASE_ORDER:
-            nid = node_id(lv, phase)
+        for nid in level_nodes(lv):
             if nid not in done:
                 out.append(nid)
     return tuple(out)
 
 
-def cais(completed: "Iterable[str]", ws: WeightSet) -> int:
+def cais(completed: "Iterable[str]", ws: WeightSet) -> float:
     """Sum of the weights of completed achievements."""
     return sum(ws.weight(n) for n in set(completed))
 
@@ -73,7 +72,7 @@ def remaining_paths(completed: "Iterable[str]") -> "List[Tuple[str, ...]]":
 
     Walks the bypass DAG: mandatory nodes are always taken, each optional node
     is either taken or skipped. Yields one path per completion subset -- 2^k
-    paths for k reachable branch nodes, capped at 512 for a full run.
+    paths for k reachable branch nodes, 1024 for a full run (10 branches).
     """
     reach = reachable_nodes(completed)
     paths: List[Tuple[str, ...]] = [()]
@@ -100,8 +99,7 @@ def score(completed: "Iterable[str]", ws: WeightSet) -> "Dict[str, float]":
     return {
         "cais": c,
         "pais": pais(done, ws),
-        # Identical scales make this redundant for the symmetric weight sets,
-        # but the asymmetric sensitivity sets have different totals.
+        # Measured weight sets have different totals, so compare across types with this.
         "cais_pct": 100.0 * c / ws.total() if ws.total() else 0.0,
         "completed_count": len(done & set(NODES)),
         "reachable_count": len(reachable_nodes(done)),

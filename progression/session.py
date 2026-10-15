@@ -1,30 +1,33 @@
 """Loader for study session JSON.
 
-Target schema (vault-of-echoes.study-session/v1), per the Study Modifications
-spec. Every block is optional except bug_reports or node_completions -- the
-loader fills in what it can and reports what was missing rather than failing.
+Reads the schema the game uploads (vault-of-echoes.study-session/v1, built by
+buildSession() in js/progression.js). Fields it uses:
 
     {
       "schema": "vault-of-echoes.study-session/v1",
-      "player":  {"id": "...", "classified_type": "explorer",
-                  "questionnaire": {...}, "telemetry": {...}},
-      "session": {"build": "...", "seed": 1207,
-                  "started_at": "...", "ended_at": "..."},
-      "node_completions": [{"node": "l1.entry", "timestamp": "...",
-                            "elapsed_ms": 1234}],
-      "bug_encounters":   [{"bug_id": "b1", "node": "l2.boss",
-                            "reported": true, "time_to_report_ms": 8000}],
-      "bug_reports":      [{"bug_id": "b1", "description": "...",
-                            "gherkin": "...", "impact_rating": 4,
-                            "timestamp": "...", "completed_nodes": [...]}],
-      "branch_outcomes":  {"l1.room": "found", "l1.chest": "attempted",
-                           "l1.boss": "never_approached"}
+      "study_phase": 1,                       # stamped by api/session
+      "player":  {"id": "...", "name": "...", "email": "..."},
+      "session": {"build": "...", "seed": 1207, "started_at": "...", "ended_at": "..."},
+      "progression_graph": {
+        "node_completions": [{"node": "l1.entry", "timestamp": "...", "elapsed_ms": 1234}],
+        "branch_outcomes":  {"l1.room": "found", "l1.chest": "attempted",
+                             "l1.boss": "never_approached"}
+      },
+      "player_classification": {"player_type": {"dominant": "explorer", ...}},
+      "bug_encounters": [{"type": "wallClip", "node": "l1.entry", ...}],
+      "bug_reports":    [{"bug_id": "b-1-l1", "impact_rating": 4, "chamber": 1,
+                          "timestamp": "...", "completed_nodes": [...]}]
     }
+
+Top-level node_completions / branch_outcomes and player.classified_type are
+also accepted. Every block is optional -- the loader fills in what it can and
+reports what was missing rather than failing. load_all() also reads the
+/api/export file, which is a JSON array of sessions.
 
 If a report omits completed_nodes, it is reconstructed from node_completions:
 every node whose timestamp is at or before the report's timestamp. Recording it
-directly in the game is still preferable -- the spec asks for it explicitly, and
-reconstruction depends on clocks agreeing.
+directly in the game is still preferable -- reconstruction depends on clocks
+agreeing.
 """
 
 from __future__ import annotations
@@ -41,6 +44,8 @@ BRANCH_OUTCOMES = ("found", "attempted", "never_approached")
 @dataclass
 class Session:
     player_id: str = ""
+    study_phase: int = 1
+    source: str = ""
     classified_type: str = ""
     seed: Optional[int] = None
     build: str = ""
@@ -57,7 +62,8 @@ class Session:
         return [c["node"] for c in self.node_completions]
 
     def unreported_encounters(self) -> List[dict]:
-        return [e for e in self.bug_encounters if not e.get("reported")]
+        # Only encounters that carry a reported flag can be judged; the game does not set it yet.
+        return [e for e in self.bug_encounters if e.get("reported") is False]
 
 
 def _completed_at(node_completions: List[dict], timestamp: Optional[str]) -> List[str]:
@@ -72,6 +78,17 @@ def load(path: str) -> Session:
     return parse(data)
 
 
+def load_all(path: str) -> List[Session]:
+    """Load a single session file or an /api/export array of sessions."""
+    with open(path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    items = data if isinstance(data, list) else [data]
+    sessions = [parse(d) for d in items]
+    for i, sess in enumerate(sessions):
+        sess.source = str(items[i].get("_blob") or path)
+    return sessions
+
+
 def parse(data: Dict[str, Any]) -> Session:
     warn: List[str] = []
 
@@ -81,8 +98,9 @@ def parse(data: Dict[str, Any]) -> Session:
 
     player = data.get("player", {}) or {}
     meta = data.get("session", {}) or {}
+    graph = data.get("progression_graph", {}) or {}
 
-    completions = list(data.get("node_completions", []) or [])
+    completions = list(graph.get("node_completions") or data.get("node_completions") or [])
     for c in completions:
         if c.get("node") not in NODES:
             warn.append("unknown node id {!r} in node_completions".format(c.get("node")))
@@ -110,15 +128,17 @@ def parse(data: Dict[str, Any]) -> Session:
             warn.append("report {} impact_rating {} out of range 1-5".format(row.get("bug_id", i), rating))
         reports.append(row)
 
-    outcomes = dict(data.get("branch_outcomes", {}) or {})
+    outcomes = dict(graph.get("branch_outcomes") or data.get("branch_outcomes") or {})
     for nid, val in outcomes.items():
         if val not in BRANCH_OUTCOMES:
             warn.append("branch outcome {!r} for {} not one of {}".format(val, nid, BRANCH_OUTCOMES))
 
-    ptype = str(player.get("classified_type", "") or "").lower()
+    classification = (data.get("player_classification", {}) or {}).get("player_type", {}) or {}
+    ptype = str(classification.get("dominant") or player.get("classified_type") or "").lower()
 
     return Session(
         player_id=str(player.get("id", "")),
+        study_phase=2 if data.get("study_phase") == 2 else 1,
         classified_type=ptype,
         seed=meta.get("seed"),
         build=str(meta.get("build", "")),
