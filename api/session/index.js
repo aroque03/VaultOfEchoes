@@ -20,6 +20,18 @@ async function streamToString(stream) {
   return Buffer.concat(chunks).toString("utf-8");
 }
 
+const DAG_EDGES = {
+  "l1.entry":["l1.room","l1.chest","l1.boss","l1.key"],
+  "l1.room":["l1.key"], "l1.chest":["l1.key"], "l1.boss":["l1.key"],
+  "l1.key":["l1.exit"], "l1.exit":["l2.entry"],
+  "l2.entry":["l2.room","l2.chest","l2.boss","l2.key"],
+  "l2.room":["l2.key"], "l2.chest":["l2.key"], "l2.boss":["l2.key"],
+  "l2.key":["l2.exit"], "l2.exit":["l3.entry"],
+  "l3.entry":["l3.room","l3.chest","l3.boss","l3.greenBoss","l3.key"],
+  "l3.room":["l3.key"], "l3.chest":["l3.key"], "l3.boss":["l3.key"],
+  "l3.greenBoss":["l3.key"], "l3.key":["l3.exit"], "l3.exit":[],
+};
+
 async function updateWeights(container, session, context) {
   const playerType = session.player_classification?.player_type?.dominant;
   if (!playerType) return;
@@ -52,8 +64,11 @@ async function updateWeights(container, session, context) {
     if (completed.length === 0) continue;
 
     const lastNode = completed[completed.length - 1];
-    if (typeWeights[lastNode] !== undefined) {
-      typeWeights[lastNode] = (typeWeights[lastNode] + severity) / 2;
+    const nextNodes = DAG_EDGES[lastNode] || [];
+    for (const next of nextNodes) {
+      if (typeWeights[next] !== undefined) {
+        typeWeights[next] = (typeWeights[next] + severity) / 2;
+      }
     }
   }
 

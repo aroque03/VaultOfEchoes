@@ -3,6 +3,18 @@ const { BlobServiceClient } = require("@azure/storage-blob");
 const CONTAINER = "sessions";
 const WEIGHTS_BLOB = "_weights.json";
 
+const DAG_EDGES = {
+  "l1.entry":["l1.room","l1.chest","l1.boss","l1.key"],
+  "l1.room":["l1.key"], "l1.chest":["l1.key"], "l1.boss":["l1.key"],
+  "l1.key":["l1.exit"], "l1.exit":["l2.entry"],
+  "l2.entry":["l2.room","l2.chest","l2.boss","l2.key"],
+  "l2.room":["l2.key"], "l2.chest":["l2.key"], "l2.boss":["l2.key"],
+  "l2.key":["l2.exit"], "l2.exit":["l3.entry"],
+  "l3.entry":["l3.room","l3.chest","l3.boss","l3.greenBoss","l3.key"],
+  "l3.room":["l3.key"], "l3.chest":["l3.key"], "l3.boss":["l3.key"],
+  "l3.greenBoss":["l3.key"], "l3.key":["l3.exit"], "l3.exit":[],
+};
+
 function defaultWeights() {
   const nodes = [
     "l1.entry","l1.room","l1.chest","l1.boss","l1.key","l1.exit",
@@ -72,17 +84,21 @@ module.exports = async function (context, req) {
           if (completed.length === 0) continue;
 
           const lastNode = completed[completed.length - 1];
-          if (typeWeights[lastNode] !== undefined) {
-            const oldW = typeWeights[lastNode];
-            typeWeights[lastNode] = (oldW + severity) / 2;
-            updatesApplied++;
-            sessionDetail.updates.push({
-              node: lastNode,
-              severity,
-              completedCount: completed.length,
-              oldW,
-              newW: typeWeights[lastNode],
-            });
+          const nextNodes = DAG_EDGES[lastNode] || [];
+          for (const next of nextNodes) {
+            if (typeWeights[next] !== undefined) {
+              const oldW = typeWeights[next];
+              typeWeights[next] = (oldW + severity) / 2;
+              updatesApplied++;
+              sessionDetail.updates.push({
+                lastCompleted: lastNode,
+                impactedNode: next,
+                severity,
+                completedCount: completed.length,
+                oldW,
+                newW: typeWeights[next],
+              });
+            }
           }
         }
 
