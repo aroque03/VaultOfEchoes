@@ -40,6 +40,7 @@ module.exports = async function (context, req) {
     const weights = defaultWeights();
     let sessionsProcessed = 0;
     let updatesApplied = 0;
+    const details = [];
 
     for await (const blob of container.listBlobsFlat()) {
       if (blob.name === WEIGHTS_BLOB) continue;
@@ -53,28 +54,39 @@ module.exports = async function (context, req) {
         const playerType = session.player_classification?.player_type?.dominant;
         if (!playerType || !weights[playerType]) continue;
 
-        const encounters = session.bug_encounters || [];
         const reports = session.bug_reports || [];
-        if (reports.length === 0 && encounters.length === 0) continue;
+        if (reports.length === 0) continue;
 
         const typeWeights = weights[playerType];
+        const sessionDetail = {
+          blob: blob.name, playerType,
+          reports: reports.length,
+          updates: [],
+        };
 
         for (const report of reports) {
           const severity = report.impact_rating || report.severity;
           if (!severity) continue;
 
-          const chamber = report.chamber;
-          const matchedEncounters = encounters.filter(e => e.chamber === chamber);
+          const completed = report.completed_nodes || [];
+          if (completed.length === 0) continue;
 
-          if (matchedEncounters.length > 0) {
-            for (const enc of matchedEncounters) {
-              if (typeWeights[enc.node] !== undefined) {
-                typeWeights[enc.node] = (typeWeights[enc.node] + severity) / 2;
-                updatesApplied++;
-              }
-            }
+          const lastNode = completed[completed.length - 1];
+          if (typeWeights[lastNode] !== undefined) {
+            const oldW = typeWeights[lastNode];
+            typeWeights[lastNode] = (oldW + severity) / 2;
+            updatesApplied++;
+            sessionDetail.updates.push({
+              node: lastNode,
+              severity,
+              completedCount: completed.length,
+              oldW,
+              newW: typeWeights[lastNode],
+            });
           }
         }
+
+        if (sessionDetail.updates.length > 0) details.push(sessionDetail);
       } catch (e) {
         context.log.warn("Skipped blob:", blob.name, e.message);
       }
@@ -93,6 +105,7 @@ module.exports = async function (context, req) {
         sessionsProcessed,
         updatesApplied,
         weights,
+        details,
       },
       headers: { "Content-Type": "application/json" },
     };

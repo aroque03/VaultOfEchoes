@@ -24,7 +24,6 @@ async function updateWeights(container, session, context) {
   const playerType = session.player_classification?.player_type?.dominant;
   if (!playerType) return;
 
-  const encounters = session.bug_encounters || [];
   const reports = session.bug_reports || [];
   if (reports.length === 0) return;
 
@@ -45,25 +44,16 @@ async function updateWeights(container, session, context) {
   if (!weights[playerType]) weights[playerType] = { ...defaultWeights().explorer };
   const typeWeights = weights[playerType];
 
-  // Build a set of nodes from encounters for this session
-  const encounterNodes = new Set(encounters.map(e => e.node));
-
-  // For each bug report, find the matching encounter node and apply severity
   for (const report of reports) {
     const severity = report.impact_rating || report.severity;
     if (!severity) continue;
 
-    // Match report to encounter by chamber and timing
-    const chamber = report.chamber;
-    const matchedEncounters = encounters.filter(e => e.chamber === chamber);
+    const completed = report.completed_nodes || [];
+    if (completed.length === 0) continue;
 
-    if (matchedEncounters.length > 0) {
-      // Apply severity to each encountered node in this chamber
-      for (const enc of matchedEncounters) {
-        if (typeWeights[enc.node] !== undefined) {
-          typeWeights[enc.node] = (typeWeights[enc.node] + severity) / 2;
-        }
-      }
+    const lastNode = completed[completed.length - 1];
+    if (typeWeights[lastNode] !== undefined) {
+      typeWeights[lastNode] = (typeWeights[lastNode] + severity) / 2;
     }
   }
 
