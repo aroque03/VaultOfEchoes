@@ -80,24 +80,28 @@ const SEV_HINT = {
 };
 
 // ---------- QA bug injection ----------
-// All bugs are ON in every chamber by default. Override via URL:
-//   all chambers: ?bugs=wall,gem   (only those)   ?bugs=none   (disable all)
+// Default placement follows the study's bug table (`levels` per bug). Override via URL:
+//   all chambers: ?bugs=all   ?bugs=wall,gem   (only those)   ?bugs=none   (disable all)
 //   per chamber:  ?l1=wall,gem&l2=none&l3=all
 const GREEN_BOSS_HP = 5;
 
 // Single source of truth for injected bugs (also read by admin.html).
 const BUG_CATALOG = {
-  wallClip:    { key:"wall",    node:"entry", desc:"Some wall tiles can be walked through (1 per chamber number)." },
-  phantomWall: { key:"pwall",   node:"room",  desc:"Invisible wall blocks a dead-end corridor tile (3 in chamber 3)." },
-  phantomGem:  { key:"gem",     node:"chest", desc:"After all 3 gems are collected, one reappears uncollected." },
-  corruptNote: { key:"corrupt", node:"chest", desc:"First chest note shows a fake error stack trace instead of its text." },
-  undeadBoss:  { key:"boss",    node:"boss",  desc:"Boss (and chamber 3 Green Boss) survives at 1 HP after being killed." },
-  fakeHeal:    { key:"heal",    node:"key",   desc:"Potion says \"Healed 1 bar\" but restores no health." },
-  stuckKey:    { key:"key",     node:"key",   desc:"Decoy key in a dead end that is jammed and can't be picked up." },
+  wallClip:    { key:"wall",    node:"entry", levels:[1,2,3], desc:"Some wall tiles can be walked through (1 per chamber number)." },
+  phantomWall: { key:"pwall",   node:"room",  levels:[1,3],   desc:"Invisible wall blocks a dead-end corridor tile (3 in chamber 3)." },
+  missingNote: { key:"room",    node:"room",  levels:[1,2],   desc:"Hidden room's chest opens but is empty; its story note never appears." },
+  phantomGem:  { key:"gem",     node:"chest", levels:[2],     desc:"After all 3 gems are collected, one reappears uncollected." },
+  corruptNote: { key:"corrupt", node:"chest", levels:[3],     desc:"First chest note shows a fake error stack trace instead of its text." },
+  undeadBoss:  { key:"boss",    node:"boss",  levels:[2,3],   desc:"Boss survives at 1 HP after being killed (chamber 3: Green Boss only)." },
+  fakeHeal:    { key:"heal",    node:"key",   levels:[2,3],   desc:"Potion says \"Healed 1 bar\" but restores no health." },
+  stuckKey:    { key:"key",     node:"key",   levels:[3],     desc:"Decoy key in a dead end that is jammed and can't be picked up." },
 };
 
 const BUGS = {};
-[1,2,3].forEach(l => { BUGS[l] = {}; Object.keys(BUG_CATALOG).forEach(b => BUGS[l][b] = true); });
+[1,2,3].forEach(l => {
+  BUGS[l] = {};
+  for(const [b, info] of Object.entries(BUG_CATALOG)) BUGS[l][b] = info.levels.includes(l);
+});
 (function applyBugQuery(){
   try {
     const p = new URLSearchParams(location.search);

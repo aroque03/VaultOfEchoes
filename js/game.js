@@ -142,7 +142,8 @@ function loadLevel(i){
     }
   }
 
-  if(state.bugsThisLevel.undeadBoss){
+  // In chamber 3 only the Green Boss is undead (set below), not the Purple Boss.
+  if(state.bugsThisLevel.undeadBoss && i !== 2){
     const boss = state.enemies.find(e => e.tough);
     if(boss) boss.buggyUndead = true;
   }
@@ -662,11 +663,16 @@ function onEnterTile(){
     if(state.warpChest && !state.warpChest.collected &&
        state.px === state.warpChest.x && state.py === state.warpChest.y){
       state.warpChest.collected = true;
-      state.warpHR.note.collected = true;
-      if(!state.notesFound.includes(state.warpHR.note.content))
-        state.notesFound.push(state.warpHR.note.content);
-      playCoin();
-      openNote(state.warpHR.note.content);
+      if(state.bugsThisLevel.missingNote){
+        recordEncounter("missingNote");
+        toast("The chest is empty...");
+      } else {
+        state.warpHR.note.collected = true;
+        if(!state.notesFound.includes(state.warpHR.note.content))
+          state.notesFound.push(state.warpHR.note.content);
+        playCoin();
+        openNote(state.warpHR.note.content);
+      }
     }
     return;
   }
