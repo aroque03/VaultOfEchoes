@@ -1,83 +1,5 @@
 const { BlobServiceClient } = require("@azure/storage-blob");
-
-const CONTAINER = "sessions";
-const WEIGHTS_BLOB = "_weights.json";
-
-function defaultWeights() {
-  const nodes = [
-    "l1.entry","l1.room","l1.chest","l1.boss","l1.key","l1.exit",
-    "l2.entry","l2.room","l2.chest","l2.boss","l2.key","l2.exit",
-    "l3.entry","l3.room","l3.chest","l3.boss","l3.greenBoss","l3.key","l3.exit",
-  ];
-  const w = {};
-  nodes.forEach(n => w[n] = 1);
-  return { explorer: { ...w }, achiever: { ...w }, killer: { ...w } };
-}
-
-async function streamToString(stream) {
-  const chunks = [];
-  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
-  return Buffer.concat(chunks).toString("utf-8");
-}
-
-const DAG_EDGES = {
-  "l1.entry":["l1.room","l1.chest","l1.boss","l1.key"],
-  "l1.room":["l1.key"], "l1.chest":["l1.key"], "l1.boss":["l1.key"],
-  "l1.key":["l1.exit"], "l1.exit":["l2.entry"],
-  "l2.entry":["l2.room","l2.chest","l2.boss","l2.key"],
-  "l2.room":["l2.key"], "l2.chest":["l2.key"], "l2.boss":["l2.key"],
-  "l2.key":["l2.exit"], "l2.exit":["l3.entry"],
-  "l3.entry":["l3.room","l3.chest","l3.boss","l3.greenBoss","l3.key"],
-  "l3.room":["l3.key"], "l3.chest":["l3.key"], "l3.boss":["l3.key"],
-  "l3.greenBoss":["l3.key"], "l3.key":["l3.exit"], "l3.exit":[],
-};
-
-async function updateWeights(container, session, context) {
-  const playerType = session.player_classification?.player_type?.dominant;
-  if (!playerType) return;
-
-  const reports = session.bug_reports || [];
-  if (reports.length === 0) return;
-
-  const blob = container.getBlockBlobClient(WEIGHTS_BLOB);
-  let weights;
-  try {
-    const exists = await blob.exists();
-    if (exists) {
-      const dl = await blob.download(0);
-      weights = JSON.parse(await streamToString(dl.readableStreamBody));
-    } else {
-      weights = defaultWeights();
-    }
-  } catch (e) {
-    weights = defaultWeights();
-  }
-
-  if (!weights[playerType]) weights[playerType] = { ...defaultWeights().explorer };
-  const typeWeights = weights[playerType];
-
-  for (const report of reports) {
-    const severity = report.impact_rating || report.severity;
-    if (!severity) continue;
-
-    const completed = report.completed_nodes || [];
-    if (completed.length === 0) continue;
-
-    const lastNode = completed[completed.length - 1];
-    const nextNodes = DAG_EDGES[lastNode] || [];
-    for (const next of nextNodes) {
-      if (typeWeights[next] !== undefined) {
-        typeWeights[next] = (typeWeights[next] + severity) / 2;
-      }
-    }
-  }
-
-  const content = JSON.stringify(weights, null, 2);
-  await blob.upload(content, Buffer.byteLength(content), {
-    blobHTTPHeaders: { blobContentType: "application/json" },
-  });
-  context.log("Weights updated for player type:", playerType);
-}
+const { CONTAINER, currentPhase, recomputeAndSave } = require("../shared/weights");
 
 module.exports = async function (context, req) {
   if (!req.body || !req.body.schema) {
@@ -92,6 +14,8 @@ module.exports = async function (context, req) {
   }
 
   const session = req.body;
+  // Stamped server-side so participants can't influence which phase they count toward.
+  session.study_phase = currentPhase();
   const playerId = session.player?.id || "anon";
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const blobName = `${playerId}/${ts}.json`;
@@ -106,16 +30,20 @@ module.exports = async function (context, req) {
       blobHTTPHeaders: { blobContentType: "application/json" },
     });
 
-    // Update running weight averages
-    try {
-      await updateWeights(container, session, context);
-    } catch (err) {
-      context.log.warn("Weight update failed (session still saved):", err.message);
+    // Phase 1 sessions refresh the weights; Phase 2 must not change them.
+    // A full recompute (not an incremental update) keeps the mean order-independent
+    // and means concurrent uploads can't drop each other's reports.
+    if (session.study_phase === 1) {
+      try {
+        await recomputeAndSave(container, context.log);
+      } catch (err) {
+        context.log.warn("Weight update failed (session still saved):", err.message);
+      }
     }
 
     context.res = {
       status: 201,
-      body: { ok: true, blob: blobName },
+      body: { ok: true, blob: blobName, study_phase: session.study_phase },
       headers: { "Content-Type": "application/json" },
     };
   } catch (err) {

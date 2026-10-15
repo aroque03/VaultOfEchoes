@@ -154,7 +154,8 @@ function render(d){
   // Summary cards
   h += '<div class="grid">';
   h += card("UNIQUE PLAYERS", d.uniquePlayers);
-  h += card("TOTAL SESSIONS", d.totalSessions);
+  h += card("STUDY PHASE", d.currentPhase || 1);
+  h += card("TOTAL SESSIONS", d.totalSessions, d.sessionsByPhase ? "P1 " + d.sessionsByPhase[1] + " · P2 " + d.sessionsByPhase[2] : "");
   h += card("COMPLETED ALL 3", d.completedAll3);
   h += card("BUGS REPORTED", d.totalBugs);
   h += card("AVG SEVERITY", d.avgSeverity, "/ 5");
@@ -265,12 +266,12 @@ async function recomputeWeights(){
     if(r.status === 401){ showLogin(); return; }
     if(!r.ok) throw new Error("API returned " + r.status);
     const d = await r.json();
-    let msg = "Recomputed: " + d.sessionsProcessed + " sessions, " + d.updatesApplied + " weight updates applied.\n";
+    let msg = "Recomputed from " + d.sessionsProcessed + " Phase 1 sessions (" + d.phase2Skipped + " Phase 2 skipped), " + d.updatesApplied + " severity attributions.\n";
     if(d.details && d.details.length > 0){
       for(const s of d.details){
-        msg += "\n" + s.blob + " (" + s.playerType + "): " + s.reports + " reports";
+        msg += "\n" + s.blob + " (" + s.playerType + ")";
         for(const u of s.updates){
-          msg += "\n  last=" + u.lastCompleted + " → impacted=" + u.impactedNode + "  sev=" + u.severity + "  " + u.oldW.toFixed(2) + " → " + u.newW.toFixed(2);
+          msg += "\n  last=" + u.lastCompleted + " → impacted=" + u.impactedNode + "  sev=" + u.severity;
         }
       }
     } else {
@@ -303,7 +304,7 @@ let cachedData = null;
 
 function downloadWeightsJSON(){
   if(!cachedData || !cachedData.weights){ alert("No weights data loaded yet. Hit REFRESH first."); return; }
-  const payload = { _exported: new Date().toISOString(), dag_edges: DAG_EDGES };
+  const payload = { _exported: new Date().toISOString(), dag_edges: DAG_EDGES, _counts: cachedData.weights._counts || null };
   for(const t of ["explorer","achiever","killer"]){
     payload[t] = cachedData.weights[t] || {};
   }
@@ -379,6 +380,8 @@ function showGraphs(){
 function buildCyGraph(containerId, weights, type){
   const accent = TYPE_COLORS[type];
   const elements = [];
+  // Report counts per node (n); a node is "changed" once any report is attributed to it.
+  const counts = (cachedData && cachedData.weights && cachedData.weights._counts && cachedData.weights._counts[type]) || null;
 
   // Add nodes
   for(const nid of Object.keys(DAG_EDGES)){
@@ -388,11 +391,12 @@ function buildCyGraph(containerId, weights, type){
     const isSpine = ["entry","key","exit"].includes(phase);
     const wVal = weights[nid];
     const wStr = wVal !== undefined ? wVal.toFixed(2) : "1.00";
-    const changed = wVal !== undefined && Math.abs(wVal - 1) > 0.005;
+    const n = counts ? (counts[nid] || 0) : null;
+    const changed = counts ? n > 0 : (wVal !== undefined && Math.abs(wVal - 1) > 0.005);
     elements.push({
       data: {
         id: nid,
-        label: phase + "\n" + wStr,
+        label: phase + "\n" + wStr + (n !== null ? " (n=" + n + ")" : ""),
         phase: phase,
         level: level,
         isSpine: isSpine,

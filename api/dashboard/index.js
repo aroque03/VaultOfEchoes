@@ -1,4 +1,5 @@
 const { BlobServiceClient } = require("@azure/storage-blob");
+const { currentPhase, sessionPhase } = require("../shared/weights");
 
 const CONTAINER = "sessions";
 const WEIGHTS_BLOB = "_weights.json";
@@ -35,6 +36,7 @@ module.exports = async function (context, req) {
     const sessionsByDate = {};
     const bugsByLevel = { 1: 0, 2: 0, 3: 0 };
     const bugEncounters = {}; // { bugType: { node: count } }
+    const sessionsByPhase = { 1: 0, 2: 0 };
     let totalDuration = 0;
     let completedAll3 = 0;
 
@@ -60,6 +62,7 @@ module.exports = async function (context, req) {
           });
         }
         players.get(playerId).sessions++;
+        sessionsByPhase[sessionPhase(session)]++;
 
         const bugs = session.bug_reports || [];
         totalBugs += bugs.length;
@@ -125,6 +128,8 @@ module.exports = async function (context, req) {
         bugsBySeverity,
         bugsByLevel,
         bugEncounters,
+        currentPhase: currentPhase(),
+        sessionsByPhase,
         playerTypes,
         sessionsByDate,
         players: Array.from(players.entries()).map(([id, p]) => ({
