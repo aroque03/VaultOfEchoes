@@ -80,29 +80,31 @@ const SEV_HINT = {
 };
 
 // ---------- QA bug injection ----------
-//   per chamber:  ?l1=wall,gem&l2=all&l3=boss
-//   all chambers: ?bugs=wall,gem,boss,room,key   or   ?bugs=all
+// All bugs are ON in every chamber by default. Override via URL:
+//   all chambers: ?bugs=wall,gem   (only those)   ?bugs=none   (disable all)
+//   per chamber:  ?l1=wall,gem&l2=none&l3=all
 const GREEN_BOSS_HP = 5;
 
-const BUGS = {
-  1: { wallClip:false, phantomGem:false, undeadBoss:false, missingNote:false, stuckKey:false, phantomWall:false, fakeHeal:false, corruptNote:false },
-  2: { wallClip:false, phantomGem:false, undeadBoss:false, missingNote:false, stuckKey:false, phantomWall:false, fakeHeal:false, corruptNote:false },
-  3: { wallClip:false, phantomGem:false, undeadBoss:false, missingNote:false, stuckKey:false, phantomWall:false, fakeHeal:false, corruptNote:false },
+// Single source of truth for injected bugs (also read by admin.html).
+const BUG_CATALOG = {
+  wallClip:    { key:"wall",    node:"entry", desc:"Some wall tiles can be walked through (1 per chamber number)." },
+  phantomWall: { key:"pwall",   node:"room",  desc:"Invisible wall blocks a dead-end corridor tile (3 in chamber 3)." },
+  phantomGem:  { key:"gem",     node:"chest", desc:"After all 3 gems are collected, one reappears uncollected." },
+  corruptNote: { key:"corrupt", node:"chest", desc:"First chest note shows a fake error stack trace instead of its text." },
+  undeadBoss:  { key:"boss",    node:"boss",  desc:"Boss (and chamber 3 Green Boss) survives at 1 HP after being killed." },
+  fakeHeal:    { key:"heal",    node:"key",   desc:"Potion says \"Healed 1 bar\" but restores no health." },
+  stuckKey:    { key:"key",     node:"key",   desc:"Decoy key in a dead end that is jammed and can't be picked up." },
 };
+
+const BUGS = {};
+[1,2,3].forEach(l => { BUGS[l] = {}; Object.keys(BUG_CATALOG).forEach(b => BUGS[l][b] = true); });
 (function applyBugQuery(){
   try {
     const p = new URLSearchParams(location.search);
     const setFlags = (lvl, list) => {
       const s = list.map(x=>x.trim()).filter(Boolean);
       const all = s.includes("all") || s.includes("1");
-      if(all || s.includes("wall"))    lvl.wallClip    = true;
-      if(all || s.includes("gem"))     lvl.phantomGem  = true;
-      if(all || s.includes("boss"))    lvl.undeadBoss  = true;
-      if(all || s.includes("room"))    lvl.missingNote = true;
-      if(all || s.includes("key"))     lvl.stuckKey    = true;
-      if(all || s.includes("pwall"))   lvl.phantomWall = true;
-      if(all || s.includes("heal"))    lvl.fakeHeal    = true;
-      if(all || s.includes("corrupt")) lvl.corruptNote = true;
+      for(const [b, info] of Object.entries(BUG_CATALOG)) lvl[b] = all || s.includes(info.key);
     };
     const g = p.get("bugs");
     if(g){ const list = g.toLowerCase().split(","); [1,2,3].forEach(l => setFlags(BUGS[l], list)); }

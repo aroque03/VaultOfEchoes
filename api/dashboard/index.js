@@ -34,6 +34,7 @@ module.exports = async function (context, req) {
     const playerTypes = { explorer: 0, achiever: 0, killer: 0 };
     const sessionsByDate = {};
     const bugsByLevel = { 1: 0, 2: 0, 3: 0 };
+    const bugEncounters = {}; // { bugType: { node: count } }
     let totalDuration = 0;
     let completedAll3 = 0;
 
@@ -69,6 +70,12 @@ module.exports = async function (context, req) {
           if (sev >= 1 && sev <= 5) bugsBySeverity[sev]++;
           const ch = bug.chamber;
           if (ch >= 1 && ch <= 3) bugsByLevel[ch]++;
+        }
+
+        for (const enc of session.bug_encounters || []) {
+          if (!enc.type || !enc.node) continue;
+          const byNode = bugEncounters[enc.type] = bugEncounters[enc.type] || {};
+          byNode[enc.node] = (byNode[enc.node] || 0) + 1;
         }
 
         const pt = session.player_classification?.player_type?.dominant;
@@ -117,6 +124,7 @@ module.exports = async function (context, req) {
         bugsByCategory,
         bugsBySeverity,
         bugsByLevel,
+        bugEncounters,
         playerTypes,
         sessionsByDate,
         players: Array.from(players.entries()).map(([id, p]) => ({

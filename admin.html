@@ -9,6 +9,7 @@
 <script src="js/cytoscape.min.js"></script>
 <script src="js/dagre.min.js"></script>
 <script src="js/cytoscape-dagre.js"></script>
+<script src="js/config.js"></script>
 <style>
 :root{
   --bg:#0d0f14; --surface:#161a22; --border:#2c3547;
@@ -94,9 +95,11 @@ tr:last-child td{border-bottom:none}
 <button class="refresh-btn" style="margin-right:8px" onclick="downloadWeightsJSON()">DOWNLOAD WEIGHTS</button>
 <button class="refresh-btn" style="margin-right:8px" onclick="showGraphs()">SHOW GRAPHS</button>
 <button class="refresh-btn" style="margin-right:8px" onclick="recomputeWeights()">RECOMPUTE WEIGHTS</button>
+<button class="refresh-btn" style="margin-right:8px" onclick="showInjectedBugs()">INJECTED BUGS</button>
 <h1>◆ VAULT OF ECHOES — ADMIN</h1>
 <span class="sub">Experiment Dashboard</span>
 
+<div id="injectedBugs" style="display:none;margin-top:20px"></div>
 <div id="graphs" style="display:none;margin-top:20px"></div>
 
 <div id="auth" style="display:none;margin-top:40px">
@@ -310,6 +313,26 @@ function downloadWeightsJSON(){
   a.download = "vault-weights-" + new Date().toISOString().slice(0,10) + ".json";
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// Lists the bugs seeded into the game by default (BUG_CATALOG / BUGS from js/config.js),
+// with how many sessions encountered each one per chamber.
+function showInjectedBugs(){
+  const el = document.getElementById("injectedBugs");
+  if(el.style.display === "block"){ el.style.display = "none"; return; }
+  const enc = (cachedData && cachedData.bugEncounters) || {};
+  let h = '<h2>Injected Bugs</h2>';
+  h += '<table><tr><th>BUG</th><th>NODE</th><th>CHAMBERS</th><th>WHAT HAPPENS</th><th>ENCOUNTERS (L1 / L2 / L3)</th></tr>';
+  for(const [bug, info] of Object.entries(BUG_CATALOG)){
+    const chambers = [1,2,3].filter(l => BUGS[l][bug]);
+    const counts = [1,2,3].map(l => (enc[bug] && enc[bug]["l" + l + "." + info.node]) || 0);
+    h += '<tr><td>' + bug + '</td><td>' + info.node + '</td><td>' + (chambers.join(", ") || "off") +
+         '</td><td>' + info.desc + '</td><td>' + (cachedData ? counts.join(" / ") : "—") + '</td></tr>';
+  }
+  h += '</table>';
+  if(!cachedData) h += '<div class="bar-row"><span style="color:var(--dim);font-size:8px">Hit REFRESH to load encounter counts.</span></div>';
+  el.innerHTML = h;
+  el.style.display = "block";
 }
 
 function showGraphs(){

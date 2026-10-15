@@ -92,7 +92,7 @@ function loadLevel(i){
   state.lastSwing = 0;
 
   // Injected defects
-  state.bugsThisLevel = BUGS[i+1] || {};
+  state.bugsThisLevel = {...(BUGS[i+1] || {})};
   state.wallClipTiles = [];
   if(state.bugsThisLevel.wallClip){
     const g = state.maze.grid;
@@ -344,9 +344,8 @@ function exitWarpRoom(){
 }
 
 // ---------- bug encounter tracking ----------
-const BUG_NODE = {wallClip:"entry",phantomWall:"room",phantomGem:"chest",corruptNote:"chest",undeadBoss:"boss",fakeHeal:"key",stuckKey:"key"};
 function recordEncounter(bugType){
-  const node = "l"+(state.levelIdx+1)+"."+BUG_NODE[bugType];
+  const node = "l"+(state.levelIdx+1)+"."+BUG_CATALOG[bugType].node;
   if(state.progression.encounters.some(e => e.type===bugType && e.node===node)) return;
   state.progression.encounters.push({
     type: bugType, node: node, chamber: state.levelIdx+1,
