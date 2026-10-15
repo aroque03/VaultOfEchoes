@@ -116,7 +116,7 @@ const BUGS = {};
 })();
 const activeBugsForLevel = n => { const b = BUGS[n] || {}; return Object.keys(b).filter(k => b[k]); };
 const anyBugConfigured = () => [1,2,3].some(l => activeBugsForLevel(l).length > 0);
-const SHOW_QA_BADGE = true;
+const SHOW_QA_BADGE = false;
 
 // ---------- sprites (8x8) ----------
 const PAL = {
