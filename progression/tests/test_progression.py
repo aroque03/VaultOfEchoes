@@ -39,6 +39,7 @@ from scoring import (  # noqa: E402
 )
 from session import load_all, parse  # noqa: E402
 import cli  # noqa: E402
+import validate  # noqa: E402
 
 SAMPLE_WEIGHTS = os.path.join(PKG, "fixtures", "sample-weights.json")
 SAMPLE_SESSION = os.path.join(PKG, "fixtures", "sample-session.json")
@@ -300,6 +301,68 @@ class TestCSV(unittest.TestCase):
         self.assertAlmostEqual(float(first["pais_explorer"]), 32.25)
         for t in PLAYER_TYPES:
             self.assertIn("pais_" + t, first)
+
+
+
+class TestValidator(unittest.TestCase):
+    def _sample(self):
+        with open(SAMPLE_SESSION) as fh:
+            return json.load(fh)
+
+    def _errors(self, data):
+        return validate.check(parse(data))[0]
+
+    def test_sample_session_is_clean(self):
+        self.assertEqual(self._errors(self._sample()), [])
+
+    def test_catches_a_branch_completed_by_the_wrong_trigger(self):
+        # A note chest used to complete l1.room without a hidden room: no outcome recorded.
+        data = self._sample()
+        del data["progression_graph"]["branch_outcomes"]["l1.room"]
+        self.assertTrue(any("l1.room completed but has no branch outcome" in e
+                            for e in self._errors(data)))
+
+    def test_catches_found_outcome_without_completion(self):
+        data = self._sample()
+        data["progression_graph"]["branch_outcomes"]["l1.boss"] = "found"
+        self.assertTrue(any("l1.boss outcome 'found'" in e for e in self._errors(data)))
+
+    def test_catches_exit_without_key(self):
+        data = self._sample()
+        comps = data["progression_graph"]["node_completions"]
+        data["progression_graph"]["node_completions"] = [c for c in comps if c["node"] != "l1.key"]
+        data["bug_reports"][2]["completed_nodes"].remove("l1.key")
+        self.assertTrue(any("l1.exit completed without the key" in e for e in self._errors(data)))
+
+    def test_catches_bug_encountered_where_it_was_not_placed(self):
+        data = self._sample()
+        data["bug_encounters"].append({"type": "stuckKey", "node": "l1.key", "chamber": 1})
+        self.assertTrue(any("stuckKey encountered in chamber 1" in e for e in self._errors(data)))
+
+    def test_catches_wrong_injected_config(self):
+        data = self._sample()
+        data["injectedConfig"] = {str(lv): sorted(validate.BUG_TABLE) for lv in (1, 2, 3)}
+        self.assertTrue(any(e.startswith("chamber 1 injected") for e in self._errors(data)))
+
+    def test_accepts_the_agreed_injected_config(self):
+        data = self._sample()
+        data["injectedConfig"] = {str(lv): validate.expected_bugs(lv) for lv in (1, 2, 3)}
+        self.assertEqual(self._errors(data), [])
+
+    def test_catches_report_snapshot_that_disagrees_with_completions(self):
+        data = self._sample()
+        data["bug_reports"][0]["completed_nodes"] = ["l1.entry", "l1.room"]
+        self.assertTrue(any("b-1-l1 completed_nodes" in e for e in self._errors(data)))
+
+    def test_bug_table_matches_the_game_config(self):
+        """BUG_TABLE must mirror BUG_CATALOG in js/config.js."""
+        import re
+        with open(os.path.join(os.path.dirname(PKG), "js", "config.js")) as fh:
+            js = fh.read()
+        found = {}
+        for m in re.finditer(r'(\w+):\s*\{[^}]*node:"(\w+)",\s*levels:\[([\d,]+)\]', js):
+            found[m.group(1)] = (m.group(2), tuple(int(x) for x in m.group(3).split(",")))
+        self.assertEqual(found, validate.BUG_TABLE)
 
 
 if __name__ == "__main__":

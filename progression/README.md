@@ -20,6 +20,8 @@ session file or the **DOWNLOAD JSON** export (an array of sessions).
     python3 progression/cli.py session.json --weights weights.json --verify   # closed form vs enumeration
     python3 progression/cli.py session.json --weights weights.json --json     # machine-readable
 
+    python3 progression/validate.py vault-sessions.json -v   # consistency checks
+
     python3 -m unittest discover -s progression/tests -t progression
 
 `--csv` writes the Phase 2 analysis table: one row per bug report with the
@@ -34,8 +36,9 @@ the three weight sets.
 | `scoring.py` | CAIS, PAIS (closed form + enumeration), prioritisation |
 | `session.py` | session JSON loader (game schema + export arrays), tolerant, warns instead of failing |
 | `cli.py` | the command line report and CSV export |
+| `validate.py` | consistency checks on session data (valid paths, outcomes, bug placement, report snapshots) |
 | `fixtures/` | a sample session in the game's format and illustrative (not real) weights |
-| `tests/` | 26 tests, including a hand-pinned worked example |
+| `tests/` | 35 tests, including a hand-pinned worked example |
 
 ## The model in one paragraph
 
