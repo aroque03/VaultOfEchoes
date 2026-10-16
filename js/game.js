@@ -43,6 +43,7 @@ function loadLevel(i){
   state.progression.bossKilled = false;
   state.progression.swordSwung = false;
   state.playerInvisible = false;
+  state.invisibleOnReturn = false;
 
   const rnd = mulberry32(c.seed ^ 0x5f3759df);
   const spots = state.plan.chestSpots;
@@ -341,6 +342,11 @@ function exitWarpRoom(){
   state.phantomWallTiles = r.phantomWallTiles;
   state.inWarpRoom = false;
   state.warpReturn = null; state.warpChest = null; state.warpHR = null;
+  if(state.invisibleOnReturn){
+    state.invisibleOnReturn = false;
+    state.playerInvisible = true;
+    recordEncounter("invisiblePlayer");
+  }
   cv.width = state.maze.TW * TILE;
   cv.height = state.maze.TH * TILE;
 }
@@ -669,10 +675,10 @@ function onEnterTile(){
       playCoin();
       openNote(state.warpHR.note.content);
       // invisiblePlayer bug: only the chest in the 2nd hidden room entered this chamber.
+      // Takes effect back on the main map (see exitWarpRoom), not behind the note.
       const roomsEntered = state.warpReturn.hiddenRooms.filter(r => r.entered).length;
       if(state.bugsThisLevel.invisiblePlayer && roomsEntered >= 2){
-        state.playerInvisible = true;
-        recordEncounter("invisiblePlayer");
+        state.invisibleOnReturn = true;
       }
     }
     return;
