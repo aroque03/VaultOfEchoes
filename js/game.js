@@ -44,6 +44,7 @@ function loadLevel(i){
   state.progression.swordSwung = false;
   state.playerInvisible = false;
   state.invisibleOnReturn = false;
+  state.invisibleStepsLeft = 0;
 
   const rnd = mulberry32(c.seed ^ 0x5f3759df);
   const spots = state.plan.chestSpots;
@@ -351,6 +352,7 @@ function exitWarpRoom(){
   if(state.invisibleOnReturn){
     state.invisibleOnReturn = false;
     state.playerInvisible = true;
+    state.invisibleStepsLeft = INVISIBLE_STEPS;
     recordEncounter("invisiblePlayer");
   }
   cv.width = state.maze.TW * TILE;
@@ -393,6 +395,7 @@ function handleHeld(t){
   const nx=state.px+dx, ny=state.py+dy;
   if(isWalkable(nx, ny)){
     state.px=nx; state.py=ny; state.lastMove=t;
+    if(state.playerInvisible && --state.invisibleStepsLeft <= 0) state.playerInvisible = false;
     recordMove();
     onEnterTile();
     checkEnemyCollision();
