@@ -41,6 +41,7 @@ function loadLevel(i){
   state.moveHist = [[state.px, state.py]];
   state.progression.enemiesKilled = 0;
   state.progression.bossKilled = false;
+  state.progression.greenBossKilled = false;
   state.progression.swordSwung = false;
   state.playerInvisible = false;
   state.invisibleOnReturn = false;
@@ -193,6 +194,10 @@ function loadLevel(i){
       state.greenBossAlive = true;
     }
   }
+
+  // Starting monster counts for the killer engagement tier (boss = purple + green).
+  state.progression.bossTotal = state.enemies.filter(e => e.tough).length;
+  state.progression.regularTotal = state.enemies.filter(e => !e.tough).length;
 
   // Potion: drops on first enemy kill (initialized as null)
   state.potion = null;
@@ -587,6 +592,7 @@ function swingSword(){
       if(e.hp <= 0){
         if(e.tough && e.green){
           killed++;
+          state.progression.greenBossKilled = true;
           completeNode(nodeId("greenBoss"));
           markBranchOutcome(nodeId("greenBoss"), "found");
           if(e.buggyUndead){

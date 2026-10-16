@@ -101,15 +101,23 @@ function finalizeBranchOutcomes(){
   const gemsCollected = state.gems.filter(g => g.collected).length;
   let achieverTier = Math.min(gemsCollected, 3);
 
+  // Killer: 3 = every boss killed (purple, plus green in chamber 3);
+  // 2 = half or more of the bosses, or every regular monster; 1 = half or more of the regulars.
+  const p = state.progression;
+  const bossesKilled = (p.bossKilled ? 1 : 0) + (p.greenBossKilled ? 1 : 0);
+  const bossTotal = p.bossTotal || 0, regularTotal = p.regularTotal || 0;
   let killerTier = 0;
-  if(state.progression.bossKilled) killerTier = 3;
-  else if(state.progression.enemiesKilled > 0) killerTier = 2;
-  else if(state.progression.swordSwung) killerTier = 1;
+  if(bossTotal > 0 && bossesKilled >= bossTotal) killerTier = 3;
+  else if((bossTotal > 0 && bossesKilled * 2 >= bossTotal) ||
+          (regularTotal > 0 && p.enemiesKilled >= regularTotal)) killerTier = 2;
+  else if(regularTotal > 0 && p.enemiesKilled * 2 >= regularTotal) killerTier = 1;
 
   state.progression.levelEngagement["l"+lvl] = {
     explorer: explorerTier,
     achiever: achieverTier,
     killer: killerTier,
+    kills: { bosses: bossesKilled, boss_total: bossTotal,
+             regulars: p.enemiesKilled, regular_total: regularTotal },
   };
 }
 
