@@ -98,8 +98,9 @@ function finalizeBranchOutcomes(){
   else if(roomsEntered === 1) explorerTier = 2;
   else if(wallBumpsNearRoom) explorerTier = 1;
 
-  const gemsCollected = state.gems.filter(g => g.collected).length;
-  let achieverTier = Math.min(gemsCollected, 3);
+  // Gems actually picked up; the phantomGem bug flips `collected` back but not `pickedUp`.
+  const gemsPickedUp = state.gems.filter(g => g.pickedUp).length;
+  let achieverTier = Math.min(gemsPickedUp, 3);
 
   // Killer: 3 = every boss killed (purple, plus green in chamber 3);
   // 2 = half or more of the bosses, or every regular monster; 1 = half or more of the regulars.

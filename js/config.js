@@ -85,7 +85,8 @@ const SEV_HINT = {
 //   all chambers: ?bugs=all   ?bugs=wall,gem   (only those)   ?bugs=none   (disable all)
 //   per chamber:  ?l1=wall,gem&l2=none&l3=all
 const GREEN_BOSS_HP = 5;
-const INVISIBLE_STEPS = 5;   // invisiblePlayer: avatar reappears after this many steps
+const INVISIBLE_STEPS = 5;
+const HUM_ATTEMPT_WINDOW_MS = 10000;  // a hum counts as a room attempt only if repeated within this   // invisiblePlayer: avatar reappears after this many steps
 
 // Single source of truth for injected bugs (also read by admin.html).
 const BUG_CATALOG = {

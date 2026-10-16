@@ -276,6 +276,7 @@ function stepGems(t){
 function collectGem(gem){
   if(gem.phantom) return;
   gem.collected = true;
+  gem.pickedUp = true;  // stays true even if phantomGem flips collected back
   const pts = GEM_POINTS[gem.idx] * (state.levelIdx+1);
   state.score += pts;
   playCoin();
@@ -705,6 +706,11 @@ function onEnterTile(){
        state.px === hr.triggerX && state.py === hr.triggerY){
       hr.triggerCount++;
       playRoomCue(hr.triggerCount);
+      // Walking past the humming tile is incidental; only a quick repeat (stepping back on)
+      // or opening the room counts as an attempt at the hidden room.
+      const now = Date.now();
+      const deliberate = hr.lastHumAt && now - hr.lastHumAt <= HUM_ATTEMPT_WINDOW_MS;
+      hr.lastHumAt = now;
       if(hr.triggerCount >= 3){
         hr.opened = true;
         state.maze.grid[hr.passY][hr.passX] = TILE_FLOOR;
@@ -713,7 +719,7 @@ function onEnterTile(){
         markBranchOutcome(nodeId("room"), "attempted");
       } else {
         toast(`The stone hums... (${hr.triggerCount}/3)`);
-        markBranchOutcome(nodeId("room"), "attempted");
+        if(deliberate) markBranchOutcome(nodeId("room"), "attempted");
       }
     }
 
