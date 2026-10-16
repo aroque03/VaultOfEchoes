@@ -79,9 +79,10 @@ green monsters; everything else is a regular monster.
 |---|---|---|---|
 | 3 | entered both hidden rooms | 3 gems | every boss killed (purple; plus green in L3) |
 | 2 | entered 1 hidden room | 2 gems | half or more of the bosses, **or** every regular monster |
-| 1 | tried for a room (wall bump within 2 tiles of a passage, or hit the humming wall) | 1 gem | half or more of the regular monsters |
+| 1 | tried for a room (wall bump within 2 tiles of a passage, or made the humming wall hum twice within 10 s / opened it) | 1 gem | half or more of the regular monsters |
 | 0 | none | none | none (sword hits alone don't score) |
 
+Gems count when picked up, even if the phantomGem bug makes one reappear.
 Monsters per chamber: L1 1 boss / 2 regulars, L2 1 / 4, L3 2 / 6. In L1–L2
 killing the one boss already scores 3; the "half the bosses" rule only matters
 in L3.
