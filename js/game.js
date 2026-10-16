@@ -252,7 +252,7 @@ function stepGems(t){
       spawnGem(gem, t);
     } else {
       const dist = Math.abs(state.px - gem.x) + Math.abs(state.py - gem.y);
-      if(dist <= GEM_FLEE_DIST && dist > 0 && t - gem.spawnTime >= 500){
+      if(dist <= GEM_FLEE_DIST && dist > 0 && t - gem.spawnTime >= GEM_FLEE_GRACE_MS){
         spawnGem(gem, t);
       }
     }

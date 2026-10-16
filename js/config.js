@@ -24,8 +24,9 @@ const TILE_PASSAGE = 2;
 const TILE = 22;
 
 const GEMS_PER_LEVEL = 3;
-const GEM_VISIBLE_MS = 2500;
-const GEM_FLEE_DIST = 3;
+const GEM_VISIBLE_MS = 4000;      // how long a gem stays in one spot
+const GEM_FLEE_DIST = 2;          // gem jumps away when the player gets this close...
+const GEM_FLEE_GRACE_MS = 1500;   // ...but not during this long after it appears
 const GEM_COLORS = ["ruby","emerald","sapphire"];
 const GEM_POINTS = [100, 150, 200];
 
