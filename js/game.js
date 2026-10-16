@@ -84,6 +84,12 @@ function loadLevel(i){
     triggerCount: 0,
     note: { x: hr.roomX, y: hr.roomY, content: noteContents[idx], collected: false },
   }));
+  // invisiblePlayer bug targets the hidden room furthest (walking distance) from the start,
+  // whichever order the player finds the rooms in.
+  if(state.hiddenRooms.length){
+    const walk = hr => (state.plan.dist[hr.floorY] || [])[hr.floorX] ?? -1;
+    state.hiddenRooms.reduce((a, b) => walk(b) > walk(a) ? b : a).furthest = true;
+  }
 
   state.alive = true;
   state.hp = 3;
@@ -674,10 +680,9 @@ function onEnterTile(){
         state.notesFound.push(state.warpHR.note.content);
       playCoin();
       openNote(state.warpHR.note.content);
-      // invisiblePlayer bug: only the chest in the 2nd hidden room entered this chamber.
+      // invisiblePlayer bug: only the chest in the room furthest from the start.
       // Takes effect back on the main map (see exitWarpRoom), not behind the note.
-      const roomsEntered = state.warpReturn.hiddenRooms.filter(r => r.entered).length;
-      if(state.bugsThisLevel.invisiblePlayer && roomsEntered >= 2){
+      if(state.bugsThisLevel.invisiblePlayer && state.warpHR.furthest){
         state.invisibleOnReturn = true;
       }
     }
