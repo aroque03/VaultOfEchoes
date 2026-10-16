@@ -2,7 +2,7 @@
 
 The authoritative CAIS/PAIS implementation for the study. Scores every bug
 report at the moment it was filed, under all three measured weight sets
-(explorer, achiever, killer) at once. The in-game numbers in a session's
+(explorer, achiever, killer, runner) at once. The in-game numbers in a session's
 `scoring` block are a debug aid only.
 
 Stdlib only, no install step, no dependencies. Tested on the macOS system
@@ -26,7 +26,7 @@ session file or the **DOWNLOAD JSON** export (an array of sessions).
 
 `--csv` writes the Phase 2 analysis table: one row per bug report with the
 player's id, phase, classified type, impact rating, and CAIS/PAIS under each of
-the three weight sets.
+the four weight sets.
 
 ## Files
 
@@ -38,14 +38,16 @@ the three weight sets.
 | `cli.py` | the command line report and CSV export |
 | `validate.py` | consistency checks on session data (valid paths, outcomes, bug placement, report snapshots) |
 | `fixtures/` | a sample session in the game's format and illustrative (not real) weights |
-| `tests/` | 35 tests, including a hand-pinned worked example |
+| `tests/` | 38 tests, including a hand-pinned worked example |
 
 ## The model in one paragraph
 
 19 nodes plus start and end, matching the game's DAG (`js/progression.js`):
 9 spine (mandatory: entry, key, exit per level) and 10 branch (optional: room,
 chest, boss per level, plus the green boss in level 3). Each branch is tied to a
-Bartle type — room/explorer, chest/achiever, boss and green boss/killer.
+Bartle type — room/explorer, chest/achiever, boss and green boss/killer. A fourth
+type, runner (no engagement total reaching 3; after Drachen et al. 2009's "Runners"),
+has a weight set but no branch.
 Weights are measured, not assigned: Phase 1 attributes each report's severity to
 the node(s) after the player's last completed node, and a node's weight is the
 mean (`api/shared/weights.js`). Nodes nobody reported against keep a placeholder

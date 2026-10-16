@@ -90,6 +90,16 @@ class TestWeights(unittest.TestCase):
         self.assertEqual(sets["explorer"].weight("l1.room"), 4.5)
         self.assertEqual(sets["killer"].counts["l3.greenBoss"], 4)
 
+    def test_runner_is_a_weight_set_without_a_branch(self):
+        sets = sample_sets()
+        self.assertIn("runner", sets)
+        self.assertNotIn("runner", {v.player_type for v in NODES.values()})
+
+    def test_weights_file_must_include_runner(self):
+        data = {t: {n: 1 for n in NODES} for t in ("explorer", "achiever", "killer")}
+        with self.assertRaises(KeyError):
+            weight_sets_from_dict(data)
+
     def test_accepts_weights_without_counts(self):
         data = {t: {n: 1 for n in NODES} for t in PLAYER_TYPES}
         sets = weight_sets_from_dict(data)

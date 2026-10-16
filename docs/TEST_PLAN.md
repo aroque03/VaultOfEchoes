@@ -47,7 +47,7 @@ use it only in persona 6, it skews classification.
 | 1 | Explorer | enter every hidden room (≥2 per chamber) | collect gems, kill enemies | explorer (explorer total 9) | all `room` |
 | 2 | Achiever | collect all 3 gems per chamber | enter rooms, kill enemies | achiever (achiever total 9) | all `chest` |
 | 3 | Killer | kill the purple boss each chamber, **and** the green boss in L3 | enter rooms, collect gems | killer (killer total 9) | all `boss`, `l3.greenBoss` |
-| 4 | Speedrunner | key → exit only | everything else | **explorer by default** (0/0/0 tie, see finding below) | none |
+| 4 | Runner | key → exit only | everything else | runner (every total below 3) | none |
 | 5 | Dies in L2 | play normally in L1, let enemies kill you in L2 | — | any | session uploads on death, `incomplete run` warning |
 | 6 | Heavy reporter | report every bug you hit (B), 3+ per chamber; press X to find rooms fast | — | any | many reports; each report's `completed_nodes` matches the moment it was filed |
 
@@ -87,9 +87,12 @@ Monsters per chamber: L1 1 boss / 2 regulars, L2 1 / 4, L3 2 / 6. In L1–L2
 killing the one boss already scores 3; the "half the bosses" rule only matters
 in L3.
 
-The three chamber scores are summed per type (0–9); the highest total wins. Ties
-go to the type whose branch was completed first (`room`, first gem, purple
-boss); a tie with no branch completed defaults to explorer. Each session's
+The three chamber scores are summed per type (0–9). If **no total reaches 3**
+(`RUNNER_THRESHOLD`), the player is a **runner**: they mostly head straight for the
+key and exit. The name follows the "Runners" cluster in Drachen, Canossa &
+Yannakakis (2009). Otherwise the highest total wins, and ties go to the type whose
+branch was completed first (`room`, first gem, purple boss). Runners have their
+own weight set and graph. Each session's
 `player_classification.level_engagement` holds the per-chamber scores and the
 kill counts behind the Killer score, so every result can be checked by hand.
 
@@ -163,9 +166,6 @@ phase is still 1.
 
 ## Findings to resolve (from building this plan)
 
-- **Zero-engagement players are classified as explorer.** With 0/0/0 totals the
-  tiebreak finds no branch completion and falls back to the first type listed.
-  Decide: exclude them from the analysis, or add an "unclassified" type.
 - **The Killer tiebreak ignores the green boss.** It checks only the purple
   `boss` completion, so a tied player whose first branch was the green boss
   doesn't get Killer from the tiebreak.

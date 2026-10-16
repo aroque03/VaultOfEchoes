@@ -86,7 +86,8 @@ const SEV_HINT = {
 //   per chamber:  ?l1=wall,gem&l2=none&l3=all
 const GREEN_BOSS_HP = 5;
 const INVISIBLE_STEPS = 5;
-const HUM_ATTEMPT_WINDOW_MS = 10000;  // a hum counts as a room attempt only if repeated within this   // invisiblePlayer: avatar reappears after this many steps
+const HUM_ATTEMPT_WINDOW_MS = 10000;
+const RUNNER_THRESHOLD = 3;  // classified "runner" if no type total reaches this (Drachen et al. 2009)  // a hum counts as a room attempt only if repeated within this   // invisiblePlayer: avatar reappears after this many steps
 
 // Single source of truth for injected bugs (also read by admin.html).
 const BUG_CATALOG = {

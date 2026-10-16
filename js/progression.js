@@ -132,6 +132,9 @@ function classifyPlayerType(){
     totals.killer += eng.killer;
   }
   const max = Math.max(totals.explorer, totals.achiever, totals.killer);
+  // Runner: no type reaches one chamber's worth of full engagement across the run,
+  // i.e. the player mostly heads straight for the key and exit.
+  if(max < RUNNER_THRESHOLD) return {dominant:"runner", totals, tiebroken:false};
   const tied = Object.keys(totals).filter(t => totals[t] === max);
   let dominant;
   if(tied.length === 1){

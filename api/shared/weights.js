@@ -7,7 +7,7 @@
 
 const CONTAINER = "sessions";
 const WEIGHTS_BLOB = "_weights.json";
-const PLAYER_TYPES = ["explorer", "achiever", "killer"];
+const PLAYER_TYPES = ["explorer", "achiever", "killer", "runner"];
 
 const DAG_EDGES = {
   "l1.entry":["l1.room","l1.chest","l1.boss","l1.key"],
@@ -35,7 +35,7 @@ function sessionPhase(session) {
 function defaultWeights() {
   const w = {};
   NODES.forEach(n => w[n] = 1);
-  return { explorer: { ...w }, achiever: { ...w }, killer: { ...w } };
+  return Object.fromEntries(PLAYER_TYPES.map(t => [t, { ...w }]));
 }
 
 async function streamToString(stream) {

@@ -61,7 +61,10 @@ BRANCH_TYPE: Dict[str, str] = {
     "greenBoss": "killer",
 }
 
-PLAYER_TYPES: Tuple[str, ...] = ("explorer", "achiever", "killer")
+# Runner: players whose highest engagement total stays below 3 (js/progression.js) -- mostly
+# straight to key and exit. Named after the "Runners" cluster in Drachen, Canossa &
+# Yannakakis (2009). Runners have no branch of their own, only a weight set.
+PLAYER_TYPES: Tuple[str, ...] = ("explorer", "achiever", "killer", "runner")
 
 # What fires each node in the game (js/game.js), as of 2026-10-14.
 TRIGGERS: Dict[str, str] = {
@@ -169,7 +172,7 @@ class WeightSet:
 
 
 def weight_sets_from_dict(data: "Dict") -> "Dict[str, WeightSet]":
-    """Build all three weight sets from {explorer: {...}, achiever: {...}, killer: {...}}.
+    """Build every type's weight set from {explorer: {...}, achiever: {...}, killer: {...}, runner: {...}}.
 
     Accepts both _weights.json and the admin DOWNLOAD WEIGHTS file; the optional
     `_counts` block (reports per node) is carried along when present.

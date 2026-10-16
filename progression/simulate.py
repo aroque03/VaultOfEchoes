@@ -5,7 +5,7 @@
     add --dry-run to generate and check locally without uploading
 
 phase1  Uploads 10 sessions concurrently. Each player type rates every bug at a
-        fixed severity (explorer 5, achiever 3, killer 1), so the recovered
+        fixed severity (explorer 5, achiever 3, killer 1, runner 2), so the recovered
         weights must equal exactly that on every reported node. Also checks the
         server's weights against an independent calculation here.
 phase2  Uploads 10 sessions whose ratings are planted to follow CAIS under the
@@ -39,8 +39,8 @@ from session import parse  # noqa: E402
 from validate import check, encounter_node, expected_bugs  # noqa: E402
 
 N_SESSIONS = 10
-PHASE1_SEVERITY = {"explorer": 5, "achiever": 3, "killer": 1}
-OWN_BRANCHES = {"explorer": {"room"}, "achiever": {"chest"}, "killer": {"boss", "greenBoss"}}
+PHASE1_SEVERITY = {"explorer": 5, "achiever": 3, "killer": 1, "runner": 2}
+OWN_BRANCHES = {"explorer": {"room"}, "achiever": {"chest"}, "killer": {"boss", "greenBoss"}, "runner": set()}
 
 # Same edges as DAG_EDGES in js/progression.js / api/shared/weights.js.
 DAG_EDGES: Dict[str, List[str]] = {}
@@ -71,7 +71,8 @@ def make_path(rng: random.Random, ptype: str, stop_level: int, finished: bool) -
         rng.shuffle(branches)
         for b in branches:
             own = NODES[b].phase in OWN_BRANCHES[ptype]
-            if rng.random() < (0.9 if own else 0.3):
+            chance = 0.0 if ptype == "runner" else (0.9 if own else 0.3)
+            if rng.random() < chance:
                 path.append(b)
         if lv < stop_level or finished:
             path += [node_id(lv, "key"), node_id(lv, "exit")]
@@ -143,7 +144,7 @@ def make_session(rng: random.Random, idx: int, ptype: str, phase: int,
 
 def generate(phase: int, rate=None, seed: int = 7) -> List[dict]:
     rng = random.Random(seed + phase)
-    types = [PLAYER_TYPES[i % 3] for i in range(N_SESSIONS)]
+    types = [PLAYER_TYPES[i % len(PLAYER_TYPES)] for i in range(N_SESSIONS)]
     return [make_session(rng, i, t, phase, rate) for i, t in enumerate(types)]
 
 

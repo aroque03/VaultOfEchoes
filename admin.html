@@ -164,10 +164,11 @@ function render(d){
 
   // Player types
   h += '<h2>Player Type Distribution</h2>';
-  const ptTotal = Math.max(1, d.playerTypes.explorer + d.playerTypes.achiever + d.playerTypes.killer);
+  const ptTotal = Math.max(1, PLAYER_TYPES.reduce((n, t) => n + (d.playerTypes[t] || 0), 0));
   h += barRow("Explorer", d.playerTypes.explorer, ptTotal, "var(--ok)");
   h += barRow("Achiever", d.playerTypes.achiever, ptTotal, "var(--gold)");
   h += barRow("Killer", d.playerTypes.killer, ptTotal, "var(--danger)");
+  h += barRow("Runner", d.playerTypes.runner || 0, ptTotal, "var(--blue)");
 
   // Bugs by category
   h += '<h2>Bugs by Category</h2>';
@@ -215,7 +216,7 @@ function render(d){
 
   // Weights
   if(d.weights){
-    for(const type of ["explorer","achiever","killer"]){
+    for(const type of PLAYER_TYPES){
       if(!d.weights[type]) continue;
       h += '<h2>Weights — ' + type.charAt(0).toUpperCase() + type.slice(1) + '</h2>';
       h += '<div class="weight-grid">';
@@ -297,15 +298,16 @@ const DAG_EDGES = {
   "l3.greenBoss":["l3.key"], "l3.key":["l3.exit"], "l3.exit":[],
 };
 
-const TYPE_COLORS = {explorer:"#5fbf7d", achiever:"#f2a03d", killer:"#e2554e"};
-const TYPE_BG     = {explorer:"#1a2e22", achiever:"#2e2518", killer:"#2e1a1a"};
+const PLAYER_TYPES = ["explorer","achiever","killer","runner"];
+const TYPE_COLORS = {explorer:"#5fbf7d", achiever:"#f2a03d", killer:"#e2554e", runner:"#5b8def"};
+const TYPE_BG     = {explorer:"#1a2e22", achiever:"#2e2518", killer:"#2e1a1a", runner:"#1a2233"};
 
 let cachedData = null;
 
 function downloadWeightsJSON(){
   if(!cachedData || !cachedData.weights){ alert("No weights data loaded yet. Hit REFRESH first."); return; }
   const payload = { _exported: new Date().toISOString(), dag_edges: DAG_EDGES, _counts: cachedData.weights._counts || null };
-  for(const t of ["explorer","achiever","killer"]){
+  for(const t of PLAYER_TYPES){
     payload[t] = cachedData.weights[t] || {};
   }
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
@@ -342,7 +344,7 @@ function showGraphs(){
   const el = document.getElementById("graphs");
   el.style.display = "block";
   el.innerHTML = "";
-  for(const type of ["explorer","achiever","killer"]){
+  for(const type of PLAYER_TYPES){
     const w = (cachedData.weights && cachedData.weights[type]) || {};
     const wrap = document.createElement("div");
     wrap.style.marginBottom = "24px";
@@ -364,7 +366,7 @@ function showGraphs(){
   }
   el.scrollIntoView({behavior:"smooth"});
   setTimeout(function(){
-    for(const type of ["explorer","achiever","killer"]){
+    for(const type of PLAYER_TYPES){
       const w = (cachedData.weights && cachedData.weights[type]) || {};
       const cy = buildCyGraph("cy-" + type, w, type);
       document.querySelector('[data-type="' + type + '"]').onclick = function(){
