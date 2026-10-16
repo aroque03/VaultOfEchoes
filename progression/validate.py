@@ -25,7 +25,7 @@ from session import BRANCH_OUTCOMES, Session, load_all  # noqa: E402
 BUG_TABLE: Dict[str, Tuple[str, Tuple[int, ...]]] = {
     "wallClip":    ("entry", (1, 2, 3)),
     "phantomWall": ("room",  (1, 3)),
-    "missingNote": ("room",  (1, 2)),
+    "invisiblePlayer": ("room", (1, 2)),
     "phantomGem":  ("chest", (2,)),
     "corruptNote": ("chest", (3,)),
     "undeadBoss":  ("boss",  (2, 3)),

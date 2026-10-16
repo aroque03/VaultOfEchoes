@@ -90,7 +90,7 @@ const GREEN_BOSS_HP = 5;
 const BUG_CATALOG = {
   wallClip:    { key:"wall",    node:"entry", levels:[1,2,3], desc:"Some wall tiles can be walked through (1 per chamber number)." },
   phantomWall: { key:"pwall",   node:"room",  levels:[1,3],   desc:"Invisible wall blocks a dead-end corridor tile (3 in chamber 3)." },
-  missingNote: { key:"room",    node:"room",  levels:[1,2],   desc:"Hidden room's chest opens but is empty; its story note never appears." },
+  invisiblePlayer: { key:"invis", node:"room", levels:[1,2], desc:"Opening the chest in the 2nd hidden room entered makes the avatar invisible until the chamber ends (HP bar stays)." },
   phantomGem:  { key:"gem",     node:"chest", levels:[2],     desc:"After all 3 gems are collected, one reappears uncollected." },
   corruptNote: { key:"corrupt", node:"chest", levels:[3],     desc:"First chest note shows a fake error stack trace instead of its text." },
   undeadBoss:  { key:"boss",    node:"boss",  levels:[2,3],   desc:"Boss survives at 1 HP after being killed (chamber 3: Green Boss only)." },

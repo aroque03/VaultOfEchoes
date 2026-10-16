@@ -58,7 +58,7 @@ nowhere else:
 |---|---|---|
 | wallClip | 1, 2, 3 | some wall tiles let you walk through (1/2/3 per chamber) |
 | phantomWall | 1, 3 | an invisible wall at a dead end |
-| missingNote | 1, 2 | the chest inside a hidden room opens empty ("The chest is empty...") |
+| invisiblePlayer | 1, 2 | after the chest in the **2nd** hidden room you enter, your avatar vanishes until the chamber ends (HP bar stays); the 1st room is normal |
 | phantomGem | 2 | after all 3 gems, one reappears |
 | corruptNote | 3 | first note chest shows a fake error stack trace |
 | undeadBoss | 2, 3 | L2 purple boss / L3 **green** boss survives at 1 HP (L3 purple dies normally) |

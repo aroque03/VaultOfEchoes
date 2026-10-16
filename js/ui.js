@@ -147,7 +147,7 @@ function draw(){
   }
 
   const iFrameActive = state.iFrameUntil && now < state.iFrameUntil;
-  if(!iFrameActive || Math.floor(now / 80) % 2 === 0){
+  if(!state.playerInvisible && (!iFrameActive || Math.floor(now / 80) % 2 === 0)){
     drawSprite(ctx, SPR.player, state.px*TILE, state.py*TILE, TILE);
   }
 

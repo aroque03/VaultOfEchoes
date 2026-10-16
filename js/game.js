@@ -42,6 +42,7 @@ function loadLevel(i){
   state.progression.enemiesKilled = 0;
   state.progression.bossKilled = false;
   state.progression.swordSwung = false;
+  state.playerInvisible = false;
 
   const rnd = mulberry32(c.seed ^ 0x5f3759df);
   const spots = state.plan.chestSpots;
@@ -662,15 +663,16 @@ function onEnterTile(){
     if(state.warpChest && !state.warpChest.collected &&
        state.px === state.warpChest.x && state.py === state.warpChest.y){
       state.warpChest.collected = true;
-      if(state.bugsThisLevel.missingNote){
-        recordEncounter("missingNote");
-        toast("The chest is empty...");
-      } else {
-        state.warpHR.note.collected = true;
-        if(!state.notesFound.includes(state.warpHR.note.content))
-          state.notesFound.push(state.warpHR.note.content);
-        playCoin();
-        openNote(state.warpHR.note.content);
+      state.warpHR.note.collected = true;
+      if(!state.notesFound.includes(state.warpHR.note.content))
+        state.notesFound.push(state.warpHR.note.content);
+      playCoin();
+      openNote(state.warpHR.note.content);
+      // invisiblePlayer bug: only the chest in the 2nd hidden room entered this chamber.
+      const roomsEntered = state.warpReturn.hiddenRooms.filter(r => r.entered).length;
+      if(state.bugsThisLevel.invisiblePlayer && roomsEntered >= 2){
+        state.playerInvisible = true;
+        recordEncounter("invisiblePlayer");
       }
     }
     return;
