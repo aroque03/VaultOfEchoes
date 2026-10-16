@@ -36,7 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from model import LEVELS, NODES, PLAYER_TYPES, level_nodes, node_id, weight_sets_from_dict  # noqa: E402
 from scoring import prioritize  # noqa: E402
 from session import parse  # noqa: E402
-from validate import BUG_TABLE, check, expected_bugs  # noqa: E402
+from validate import check, encounter_node, expected_bugs  # noqa: E402
 
 N_SESSIONS = 10
 PHASE1_SEVERITY = {"explorer": 5, "achiever": 3, "killer": 1}
@@ -117,7 +117,7 @@ def make_session(rng: random.Random, idx: int, ptype: str, phase: int,
             if not NODES[n].mandatory:
                 outcomes[n] = "found" if n in path else rng.choice(["attempted", "never_approached"])
         for bug in expected_bugs(lv):
-            nid = node_id(lv, BUG_TABLE[bug][0])
+            nid = encounter_node(bug, lv)
             if nid in path and rng.random() < 0.5:
                 at = completions[path.index(nid)]
                 encounters.append({"type": bug, "node": nid, "chamber": lv,

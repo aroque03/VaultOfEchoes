@@ -94,7 +94,7 @@ const BUG_CATALOG = {
   invisiblePlayer: { key:"invis", node:"room", levels:[1,2], desc:"Opening the chest in the hidden room furthest from the start makes the avatar invisible on the main map for the next 5 steps (HP bar stays)." },
   phantomGem:  { key:"gem",     node:"chest", levels:[2],     desc:"After all 3 gems are collected, one reappears uncollected." },
   corruptNote: { key:"corrupt", node:"chest", levels:[3],     desc:"First chest note shows a fake error stack trace instead of its text." },
-  undeadBoss:  { key:"boss",    node:"boss",  levels:[2,3],   desc:"Boss survives at 1 HP after being killed (chamber 3: Green Boss only)." },
+  undeadBoss:  { key:"boss",    node:"boss",  levels:[2,3],   nodeByLevel:{3:"greenBoss"}, desc:"Boss survives at 1 HP after being killed (chamber 3: Green Boss only)." },
   fakeHeal:    { key:"heal",    node:"key",   levels:[2,3],   desc:"Potion says \"Healed 1 bar\" but restores no health." },
   stuckKey:    { key:"key",     node:"key",   levels:[3],     desc:"Decoy key in a dead end that is jammed and can't be picked up." },
 };
@@ -120,6 +120,8 @@ const BUGS = {};
     });
   } catch(e){}
 })();
+// Node an encounter is recorded at; nodeByLevel overrides it per chamber.
+const bugNode = (bug, level) => (BUG_CATALOG[bug].nodeByLevel || {})[level] || BUG_CATALOG[bug].node;
 const activeBugsForLevel = n => { const b = BUGS[n] || {}; return Object.keys(b).filter(k => b[k]); };
 const anyBugConfigured = () => [1,2,3].some(l => activeBugsForLevel(l).length > 0);
 const SHOW_QA_BADGE = false;

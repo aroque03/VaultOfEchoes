@@ -34,6 +34,16 @@ BUG_TABLE: Dict[str, Tuple[str, Tuple[int, ...]]] = {
 }
 
 
+# Per-chamber exceptions to the node an encounter is recorded at (nodeByLevel in
+# js/config.js): in chamber 3 the undead boss is the green boss.
+BUG_NODE_BY_LEVEL: Dict[str, Dict[int, str]] = {"undeadBoss": {3: "greenBoss"}}
+
+
+def encounter_node(bug: str, chamber: int) -> str:
+    phase = BUG_NODE_BY_LEVEL.get(bug, {}).get(chamber, BUG_TABLE[bug][0])
+    return node_id(chamber, phase)
+
+
 def expected_bugs(chamber: int) -> List[str]:
     return sorted(b for b, (_, lv) in BUG_TABLE.items() if chamber in lv)
 
@@ -128,13 +138,14 @@ def check(sess: Session) -> Tuple[List[str], List[str]]:
         if bug not in BUG_TABLE:
             errors.append("encounter of unknown bug {!r}".format(bug))
             continue
-        phase, chambers = BUG_TABLE[bug]
+        chambers = BUG_TABLE[bug][1]
         if ch not in chambers:
             errors.append("{} encountered in chamber {} (placed in {})".format(
                 bug, ch, ",".join(map(str, chambers))))
-        if not isinstance(ch, int) or nid != node_id(ch, phase):
-            errors.append("{} encounter at {} (expected {}.{})".format(
-                bug, nid, "l{}".format(ch), phase))
+        if not isinstance(ch, int):
+            errors.append("{} encounter has no chamber".format(bug))
+        elif nid != encounter_node(bug, ch):
+            errors.append("{} encounter at {} (expected {})".format(bug, nid, encounter_node(bug, ch)))
         if (bug, nid) in enc_seen:
             errors.append("{} at {} recorded twice".format(bug, nid))
         enc_seen.add((bug, nid))

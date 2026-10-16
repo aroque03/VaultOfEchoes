@@ -270,7 +270,8 @@ function openBugForm(){
   const done = completedNodes();
   el("bugCtx").innerHTML =
     `Chamber <b>${state.levelIdx+1}</b> · tile <b>(${state.px}, ${state.py})</b> · ` +
-    `nodes <b>${done.length}/21</b> · key <b>${state.keyFound?"yes":"no"}</b><br>` +
+    `nodes <b>${done.length}/${Object.keys(DAG_EDGES).length}</b> · last <b>${done[done.length-1] || "none"}</b> · ` +
+    `key <b>${state.keyFound?"yes":"no"}</b><br>` +
     `${now.toLocaleTimeString()}`;
   showOverlay("bug");
   setTimeout(()=>el("bugDesc").focus(), 30);

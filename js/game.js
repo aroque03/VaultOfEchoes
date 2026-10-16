@@ -366,7 +366,7 @@ function exitWarpRoom(){
 
 // ---------- bug encounter tracking ----------
 function recordEncounter(bugType){
-  const node = "l"+(state.levelIdx+1)+"."+BUG_CATALOG[bugType].node;
+  const node = "l"+(state.levelIdx+1)+"."+bugNode(bugType, state.levelIdx+1);
   if(state.progression.encounters.some(e => e.type===bugType && e.node===node)) return;
   state.progression.encounters.push({
     type: bugType, node: node, chamber: state.levelIdx+1,

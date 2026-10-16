@@ -326,8 +326,9 @@ function showInjectedBugs(){
   h += '<table><tr><th>BUG</th><th>NODE</th><th>CHAMBERS</th><th>WHAT HAPPENS</th><th>ENCOUNTERS (L1 / L2 / L3)</th></tr>';
   for(const [bug, info] of Object.entries(BUG_CATALOG)){
     const chambers = [1,2,3].filter(l => BUGS[l][bug]);
-    const counts = [1,2,3].map(l => (enc[bug] && enc[bug]["l" + l + "." + info.node]) || 0);
-    h += '<tr><td>' + bug + '</td><td>' + info.node + '</td><td>' + (chambers.join(", ") || "off") +
+    const counts = [1,2,3].map(l => (enc[bug] && enc[bug]["l" + l + "." + bugNode(bug, l)]) || 0);
+    const nodeLabel = info.node + Object.entries(info.nodeByLevel || {}).map(([l, n]) => " (L" + l + ": " + n + ")").join("");
+    h += '<tr><td>' + bug + '</td><td>' + nodeLabel + '</td><td>' + (chambers.join(", ") || "off") +
          '</td><td>' + info.desc + '</td><td>' + (cachedData ? counts.join(" / ") : "—") + '</td></tr>';
   }
   h += '</table>';

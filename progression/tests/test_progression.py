@@ -363,6 +363,17 @@ class TestValidator(unittest.TestCase):
         for m in re.finditer(r'(\w+):\s*\{[^}]*node:"(\w+)",\s*levels:\[([\d,]+)\]', js):
             found[m.group(1)] = (m.group(2), tuple(int(x) for x in m.group(3).split(",")))
         self.assertEqual(found, validate.BUG_TABLE)
+        overrides = {}
+        for m in re.finditer(r'(\w+):\s*\{[^\n]*nodeByLevel:\{(\d+):"(\w+)"\}', js):
+            overrides[m.group(1)] = {int(m.group(2)): m.group(3)}
+        self.assertEqual(overrides, validate.BUG_NODE_BY_LEVEL)
+
+    def test_green_boss_undead_encounter_is_at_green_boss_node(self):
+        data = self._sample()
+        data["bug_encounters"] = [{"type": "undeadBoss", "node": "l3.greenBoss", "chamber": 3}]
+        self.assertEqual(self._errors(data), [])
+        data["bug_encounters"] = [{"type": "undeadBoss", "node": "l3.boss", "chamber": 3}]
+        self.assertTrue(any("expected l3.greenBoss" in e for e in self._errors(data)))
 
 
 if __name__ == "__main__":
