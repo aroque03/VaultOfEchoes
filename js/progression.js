@@ -15,15 +15,18 @@ function loadWeights(){
 }
 
 const DAG_EDGES = {
+  // Optional achievements (room, chest, boss, greenBoss) can follow each other in any order,
+  // so within a chamber each connects to every other optional one and to the key.
   "l1.entry":["l1.room","l1.chest","l1.boss","l1.key"],
-  "l1.room":["l1.key"], "l1.chest":["l1.key"], "l1.boss":["l1.key"],
+  "l1.room":["l1.chest","l1.boss","l1.key"], "l1.chest":["l1.room","l1.boss","l1.key"], "l1.boss":["l1.room","l1.chest","l1.key"],
   "l1.key":["l1.exit"], "l1.exit":["l2.entry"],
   "l2.entry":["l2.room","l2.chest","l2.boss","l2.key"],
-  "l2.room":["l2.key"], "l2.chest":["l2.key"], "l2.boss":["l2.key"],
+  "l2.room":["l2.chest","l2.boss","l2.key"], "l2.chest":["l2.room","l2.boss","l2.key"], "l2.boss":["l2.room","l2.chest","l2.key"],
   "l2.key":["l2.exit"], "l2.exit":["l3.entry"],
   "l3.entry":["l3.room","l3.chest","l3.boss","l3.greenBoss","l3.key"],
-  "l3.room":["l3.key"], "l3.chest":["l3.key"], "l3.boss":["l3.key"],
-  "l3.greenBoss":["l3.key"], "l3.key":["l3.exit"], "l3.exit":[],
+  "l3.room":["l3.chest","l3.boss","l3.greenBoss","l3.key"], "l3.chest":["l3.room","l3.boss","l3.greenBoss","l3.key"],
+  "l3.boss":["l3.room","l3.chest","l3.greenBoss","l3.key"], "l3.greenBoss":["l3.room","l3.chest","l3.boss","l3.key"],
+  "l3.key":["l3.exit"], "l3.exit":[],
 };
 
 function computeCAIS(playerType){

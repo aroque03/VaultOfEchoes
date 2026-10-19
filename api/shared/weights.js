@@ -1,8 +1,8 @@
 // Shared weight computation for the session upload and recompute endpoints.
 //
 // Weight of a node for a player type = mean severity of all Phase 1 bug reports
-// attributed to it. A report is attributed to the NEXT node(s) after the
-// player's last completed node, since the completed node can't be affected.
+// attributed to it. A report is attributed to the NEXT open node(s) after the
+// player's last completed node, since completed nodes can't be affected.
 // Nodes with no reports keep the default weight of 1 (see `counts` for n).
 
 const CONTAINER = "sessions";
@@ -10,17 +10,37 @@ const WEIGHTS_BLOB = "_weights.json";
 const PLAYER_TYPES = ["explorer", "achiever", "killer", "runner"];
 
 const DAG_EDGES = {
+  // Optional achievements (room, chest, boss, greenBoss) can follow each other in any order,
+  // so within a chamber each connects to every other optional one and to the key.
   "l1.entry":["l1.room","l1.chest","l1.boss","l1.key"],
-  "l1.room":["l1.key"], "l1.chest":["l1.key"], "l1.boss":["l1.key"],
+  "l1.room":["l1.chest","l1.boss","l1.key"], "l1.chest":["l1.room","l1.boss","l1.key"], "l1.boss":["l1.room","l1.chest","l1.key"],
   "l1.key":["l1.exit"], "l1.exit":["l2.entry"],
   "l2.entry":["l2.room","l2.chest","l2.boss","l2.key"],
-  "l2.room":["l2.key"], "l2.chest":["l2.key"], "l2.boss":["l2.key"],
+  "l2.room":["l2.chest","l2.boss","l2.key"], "l2.chest":["l2.room","l2.boss","l2.key"], "l2.boss":["l2.room","l2.chest","l2.key"],
   "l2.key":["l2.exit"], "l2.exit":["l3.entry"],
   "l3.entry":["l3.room","l3.chest","l3.boss","l3.greenBoss","l3.key"],
-  "l3.room":["l3.key"], "l3.chest":["l3.key"], "l3.boss":["l3.key"],
-  "l3.greenBoss":["l3.key"], "l3.key":["l3.exit"], "l3.exit":[],
+  "l3.room":["l3.chest","l3.boss","l3.greenBoss","l3.key"], "l3.chest":["l3.room","l3.boss","l3.greenBoss","l3.key"],
+  "l3.boss":["l3.room","l3.chest","l3.greenBoss","l3.key"], "l3.greenBoss":["l3.room","l3.chest","l3.boss","l3.key"],
+  "l3.key":["l3.exit"], "l3.exit":[],
 };
 const NODES = Object.keys(DAG_EDGES);
+
+// Next achievements still open after `last`: follow its edges, passing through any
+// already-completed node to the open ones beyond it (e.g. a branch finished after the
+// key leads on to the exit).
+function nextOpenNodes(last, completed) {
+  const done = new Set(completed);
+  const open = [], seen = new Set([last]);
+  const stack = [...(DAG_EDGES[last] || [])];
+  while (stack.length) {
+    const n = stack.shift();
+    if (seen.has(n)) continue;
+    seen.add(n);
+    if (done.has(n)) stack.push(...(DAG_EDGES[n] || []));
+    else open.push(n);
+  }
+  return open;
+}
 
 // Phase the study is currently in, set via the STUDY_PHASE app setting (default 1).
 function currentPhase() {
@@ -72,7 +92,7 @@ async function computeWeights(container, log) {
         if (!severity || completed.length === 0) continue;
 
         const lastNode = completed[completed.length - 1];
-        for (const next of DAG_EDGES[lastNode] || []) {
+        for (const next of nextOpenNodes(lastNode, completed)) {
           sums[playerType][next] += severity;
           counts[playerType][next]++;
           updatesApplied++;
@@ -110,6 +130,6 @@ async function recomputeAndSave(container, log) {
 }
 
 module.exports = {
-  CONTAINER, WEIGHTS_BLOB, DAG_EDGES,
+  CONTAINER, WEIGHTS_BLOB, DAG_EDGES, nextOpenNodes,
   currentPhase, sessionPhase, defaultWeights, streamToString, recomputeAndSave,
 };

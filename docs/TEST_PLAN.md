@@ -98,15 +98,21 @@ kill counts behind the Killer score, so every result can be checked by hand.
 
 ### Checking the graph
 
-A report's severity goes to the nodes **after the last completed node** (shown as
-"last" on the report form), in the graph for the player's classified type:
+Optional achievements can follow each other in any order, so within a chamber
+each of `room`, `chest`, `boss` (and `greenBoss` in L3) connects to the others and
+to `key`. A report's severity goes to the **next achievements still open** after the
+last completed node (shown as "last" on the report form), in the graph for the
+player's classified type. Completed nodes are skipped, passing through to what lies
+beyond them:
 
-| Last completed | Nodes that get the severity |
+| Completed when reporting (chamber 1) | Nodes that get the severity |
 |---|---|
-| `entry` | `room`, `chest`, `boss`, `key` (+ `greenBoss` in L3) |
-| `room` / `chest` / `boss` / `greenBoss` | `key` |
-| `key` | `exit` |
-| `exit` | next chamber's `entry` |
+| `entry` | `room`, `chest`, `boss`, `key` |
+| `entry`, `chest` | `room`, `boss`, `key` |
+| `entry`, `chest`, `room` | `boss`, `key` |
+| `entry`, `key`, `room` (optional after the key) | `chest`, `boss`, `exit` |
+| … `key` | `exit` |
+| … `exit` | next chamber's `entry` |
 
 Each node's weight is the mean of the severities it received; `n=` is the count.
 After a persona run with 2–3 reports at different severities: RECOMPUTE →

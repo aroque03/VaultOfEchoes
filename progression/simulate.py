@@ -48,8 +48,8 @@ for _lv in LEVELS:
     _nodes = level_nodes(_lv)
     _branches = [n for n in _nodes if not NODES[n].mandatory]
     DAG_EDGES[node_id(_lv, "entry")] = _branches + [node_id(_lv, "key")]
-    for _b in _branches:
-        DAG_EDGES[_b] = [node_id(_lv, "key")]
+    for _b in _branches:  # optional achievements can follow each other in any order
+        DAG_EDGES[_b] = [o for o in _branches if o != _b] + [node_id(_lv, "key")]
     DAG_EDGES[node_id(_lv, "key")] = [node_id(_lv, "exit")]
     DAG_EDGES[node_id(_lv, "exit")] = [node_id(_lv + 1, "entry")] if _lv < LEVELS[-1] else []
 
@@ -151,6 +151,22 @@ def generate(phase: int, rate=None, seed: int = 7) -> List[dict]:
 # ---------------------------------------------------------------------------
 # Independent weight calculation (cross-checks api/shared/weights.js)
 # ---------------------------------------------------------------------------
+def next_open(last: str, completed: List[str]) -> List[str]:
+    """Next achievements still open after `last`, passing through completed ones."""
+    done, seen, out = set(completed), {last}, []
+    queue = list(DAG_EDGES[last])
+    while queue:
+        n = queue.pop(0)
+        if n in seen:
+            continue
+        seen.add(n)
+        if n in done:
+            queue.extend(DAG_EDGES[n])
+        else:
+            out.append(n)
+    return out
+
+
 def expected_weights(sessions: List[dict]):
     sums = {t: {n: 0.0 for n in NODES} for t in PLAYER_TYPES}
     counts = {t: {n: 0 for n in NODES} for t in PLAYER_TYPES}
@@ -159,7 +175,7 @@ def expected_weights(sessions: List[dict]):
             continue
         t = s["player_classification"]["player_type"]["dominant"]
         for r in s["bug_reports"]:
-            for nxt in DAG_EDGES[r["completed_nodes"][-1]]:
+            for nxt in next_open(r["completed_nodes"][-1], r["completed_nodes"]):
                 sums[t][nxt] += r["impact_rating"]
                 counts[t][nxt] += 1
     weights = {t: {n: (sums[t][n] / counts[t][n] if counts[t][n] else 1.0) for n in NODES}

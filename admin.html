@@ -287,15 +287,18 @@ async function recomputeWeights(){
 
 // ---------- DAG definition (mirrors progression.js) ----------
 const DAG_EDGES = {
+  // Optional achievements (room, chest, boss, greenBoss) can follow each other in any order,
+  // so within a chamber each connects to every other optional one and to the key.
   "l1.entry":["l1.room","l1.chest","l1.boss","l1.key"],
-  "l1.room":["l1.key"], "l1.chest":["l1.key"], "l1.boss":["l1.key"],
+  "l1.room":["l1.chest","l1.boss","l1.key"], "l1.chest":["l1.room","l1.boss","l1.key"], "l1.boss":["l1.room","l1.chest","l1.key"],
   "l1.key":["l1.exit"], "l1.exit":["l2.entry"],
   "l2.entry":["l2.room","l2.chest","l2.boss","l2.key"],
-  "l2.room":["l2.key"], "l2.chest":["l2.key"], "l2.boss":["l2.key"],
+  "l2.room":["l2.chest","l2.boss","l2.key"], "l2.chest":["l2.room","l2.boss","l2.key"], "l2.boss":["l2.room","l2.chest","l2.key"],
   "l2.key":["l2.exit"], "l2.exit":["l3.entry"],
   "l3.entry":["l3.room","l3.chest","l3.boss","l3.greenBoss","l3.key"],
-  "l3.room":["l3.key"], "l3.chest":["l3.key"], "l3.boss":["l3.key"],
-  "l3.greenBoss":["l3.key"], "l3.key":["l3.exit"], "l3.exit":[],
+  "l3.room":["l3.chest","l3.boss","l3.greenBoss","l3.key"], "l3.chest":["l3.room","l3.boss","l3.greenBoss","l3.key"],
+  "l3.boss":["l3.room","l3.chest","l3.greenBoss","l3.key"], "l3.greenBoss":["l3.room","l3.chest","l3.boss","l3.key"],
+  "l3.key":["l3.exit"], "l3.exit":[],
 };
 
 const PLAYER_TYPES = ["explorer","achiever","killer","runner"];
@@ -410,15 +413,20 @@ function buildCyGraph(containerId, weights, type){
   }
 
   // Add edges
+  const SPINE = ["entry","key","exit"];
   for(const [from, tos] of Object.entries(DAG_EDGES)){
     for(const to of tos){
       const crossLevel = from.split(".")[0] !== to.split(".")[0];
+      // Optional-to-optional connections (any order) are drawn but left out of the layout.
+      const mesh = !SPINE.includes(from.split(".")[1]) && !SPINE.includes(to.split(".")[1]);
       elements.push({
         data: {
           id: from + "->" + to,
           source: from,
           target: to,
           crossLevel: crossLevel,
+          mesh: mesh,
+          cpd: 18,
         },
       });
     }
@@ -427,14 +435,7 @@ function buildCyGraph(containerId, weights, type){
   const cy = cytoscape({
     container: document.getElementById(containerId),
     elements: elements,
-    layout: {
-      name: "dagre",
-      rankDir: "LR",
-      nodeSep: 40,
-      rankSep: 80,
-      edgeSep: 20,
-      animate: false,
-    },
+    layout: { name: "null" },
     style: [
       {
         selector: "node",
@@ -487,6 +488,19 @@ function buildCyGraph(containerId, weights, type){
         },
       },
       {
+        selector: "edge[?mesh]",
+        style: {
+          "width": 1.2,
+          "curve-style": "unbundled-bezier",
+          "control-point-distances": "data(cpd)",
+          "control-point-weights": 0.5,
+          "line-color": accent,
+          "target-arrow-color": accent,
+          "opacity": 0.45,
+          "arrow-scale": 0.6,
+        },
+      },
+      {
         selector: "edge[?crossLevel]",
         style: {
           "width": 2.5,
@@ -502,9 +516,19 @@ function buildCyGraph(containerId, weights, type){
     boxSelectionEnabled: false,
   });
 
-  cy.on("layoutstop", function(){
+  // Lay out the main progression, keeping each chamber's optional achievements stacked in one
+  // column; then bow each optional-to-optional edge out by its span so it clears the nodes between.
+  const layout = cy.elements().not("edge[?mesh]").layout({
+    name: "dagre", rankDir: "LR", nodeSep: 40, rankSep: 80, edgeSep: 20, animate: false,
+  });
+  layout.one("layoutstop", function(){
+    cy.edges("[?mesh]").forEach(function(e){
+      const span = Math.abs(e.source().position("y") - e.target().position("y"));
+      e.data("cpd", span < 100 ? 18 : 18 + span * 0.35);
+    });
     cy.fit(undefined, 30);
   });
+  layout.run();
 
   return cy;
 }

@@ -25,6 +25,13 @@ over orderings would weight "completed every branch" far more heavily than
 "went straight for the exit" for purely combinatorial reasons. See pais() in
 scoring.py.
 
+The progression graph the study reports (js/progression.js) connects each optional
+node to every other optional node in its chamber and to the key, since they can be
+completed in any order. Drawn that way it contains 2-cycles, but no traversal can
+repeat a node (achievements are one-time), so the progression *states* -- sets of
+completed nodes -- form a DAG. The bypass chain below is how that state space is
+enumerated; it is not a claim about play order.
+
 Weights are measured, not assigned: each node's weight for a player type is the
 mean Phase 1 severity attributed to it (api/shared/weights.js). They are loaded
 from the weights JSON the admin page exports -- see load_weights().
