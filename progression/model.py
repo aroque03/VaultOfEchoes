@@ -197,6 +197,47 @@ def load_weights(path: str) -> "Dict[str, WeightSet]":
 
 
 # ---------------------------------------------------------------------------
+# Progression graph as studied (mirrors DAG_EDGES in js/progression.js)
+# ---------------------------------------------------------------------------
+def build_progression_edges() -> "Dict[str, List[str]]":
+    """Within a chamber, every optional node leads to every other optional node and the key."""
+    edges: Dict[str, List[str]] = {}
+    for level in LEVELS:
+        branches = [n for n in level_nodes(level) if not NODES[n].mandatory]
+        key, exit_ = node_id(level, "key"), node_id(level, "exit")
+        edges[node_id(level, "entry")] = branches + [key]
+        for b in branches:
+            edges[b] = [o for o in branches if o != b] + [key]
+        edges[key] = [exit_]
+        edges[exit_] = [node_id(level + 1, "entry")] if level < LEVELS[-1] else []
+    return edges
+
+
+PROGRESSION_EDGES: Dict[str, List[str]] = build_progression_edges()
+
+
+def next_open_nodes(last: str, completed: "List[str]") -> "List[str]":
+    """Achievements still open right after `last`: where a bug's severity is attributed.
+
+    Follows the progression edges, passing through already-completed nodes to the
+    open ones beyond (an optional node finished after the key leads on to the exit).
+    Mirrors nextOpenNodes() in api/shared/weights.js.
+    """
+    done, seen, out = set(completed), {last}, []
+    queue = list(PROGRESSION_EDGES.get(last, []))
+    while queue:
+        n = queue.pop(0)
+        if n in seen:
+            continue
+        seen.add(n)
+        if n in done:
+            queue.extend(PROGRESSION_EDGES.get(n, []))
+        else:
+            out.append(n)
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Graph edges (used only by the DFS validator)
 # ---------------------------------------------------------------------------
 def build_edges() -> "Dict[str, List[str]]":

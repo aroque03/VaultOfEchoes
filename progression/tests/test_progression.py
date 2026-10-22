@@ -39,7 +39,9 @@ from scoring import (  # noqa: E402
 )
 from session import load_all, parse  # noqa: E402
 import cli  # noqa: E402
+import compare  # noqa: E402
 import validate  # noqa: E402
+from model import PROGRESSION_EDGES, next_open_nodes  # noqa: E402
 
 SAMPLE_WEIGHTS = os.path.join(PKG, "fixtures", "sample-weights.json")
 SAMPLE_SESSION = os.path.join(PKG, "fixtures", "sample-session.json")
@@ -384,6 +386,84 @@ class TestValidator(unittest.TestCase):
         self.assertEqual(self._errors(data), [])
         data["bug_encounters"] = [{"type": "undeadBoss", "node": "l3.boss", "chamber": 3}]
         self.assertTrue(any("expected l3.greenBoss" in e for e in self._errors(data)))
+
+
+
+class TestProgressionGraph(unittest.TestCase):
+    def test_matches_the_game_graph(self):
+        """PROGRESSION_EDGES must mirror DAG_EDGES in js/progression.js."""
+        import re
+        with open(os.path.join(os.path.dirname(PKG), "js", "progression.js")) as fh:
+            js = fh.read()
+        block = js[js.index("const DAG_EDGES = {"):js.index("};", js.index("const DAG_EDGES = {"))]
+        game = {m.group(1): re.findall(r'"([\w.]+)"', m.group(2))
+                for m in re.finditer(r'"([\w.]+)":\[([^\]]*)\]', block)}
+        self.assertEqual({k: sorted(v) for k, v in game.items()},
+                         {k: sorted(v) for k, v in PROGRESSION_EDGES.items()})
+
+    def test_next_open_skips_completed_and_passes_through(self):
+        self.assertEqual(sorted(next_open_nodes("l1.chest", ["l1.entry", "l1.chest"])),
+                         ["l1.boss", "l1.key", "l1.room"])
+        self.assertEqual(sorted(next_open_nodes("l1.room", ["l1.entry", "l1.key", "l1.room"])),
+                         ["l1.boss", "l1.chest", "l1.exit"])
+        self.assertEqual(next_open_nodes("l1.exit", ["l1.entry", "l1.key", "l1.exit"]), ["l2.entry"])
+
+
+class TestCompare(unittest.TestCase):
+    def test_kendall_tau_b(self):
+        self.assertAlmostEqual(compare.kendall_tau_b([1, 2, 3], [1, 2, 3]), 1.0)
+        self.assertAlmostEqual(compare.kendall_tau_b([1, 2, 3], [3, 2, 1]), -1.0)
+        # One tie in y: C=2, D=0, pairs=3, ties_y=1 -> 2 / sqrt(3 * 2)
+        self.assertAlmostEqual(compare.kendall_tau_b([1, 2, 3], [1, 1, 2]), 2 / (6 ** 0.5))
+        self.assertIsNone(compare.kendall_tau_b([2, 2, 2], [1, 2, 3]))
+
+    def test_within_a_session_every_weight_set_gives_time_order(self):
+        """Completed sets only grow, so CAIS order is time order under any positive weights."""
+        done = ["l1.entry", "l1.room", "l1.key", "l1.exit", "l2.entry", "l2.boss"]
+        reports = [done[:k] for k in range(1, len(done) + 1)]
+        for ws in list(sample_sets().values()) + [compare.uniform_weight_set()]:
+            keys = [compare.priority_key(r, ws) for r in reports]
+            self.assertEqual(keys, sorted(keys), ws.player_type)
+
+    def _explorer_sessions(self, ratings):
+        out = []
+        for i, (branch, rating) in enumerate(ratings):
+            out.append(parse({"study_phase": 2, "player": {"id": "p%d" % i},
+                              "player_classification": {"player_type": {"dominant": "explorer"}},
+                              "bug_reports": [{"bug_id": "b", "impact_rating": rating,
+                                               "completed_nodes": ["l1.entry", "l1." + branch]}]}))
+        return out
+
+    def _type_weights(self):
+        def w(high):
+            return {n: (5 if NODES[n].phase == high else 1) for n in NODES}
+        return weight_sets_from_dict({"explorer": w("room"), "achiever": w("chest"),
+                                      "killer": w("boss"), "runner": w("none")})
+
+    def test_own_weights_beat_others_when_ratings_follow_them(self):
+        # Same point in the game; explorers rate bugs after the room branch highest.
+        sessions = self._explorer_sessions([("room", 5), ("room", 4), ("chest", 2),
+                                            ("chest", 1), ("boss", 2), ("boss", 1)])
+        res = compare.analyze(sessions, self._type_weights(), permutations=200, bootstrap=100)
+        tau = res["types"]["explorer"]["tau"]
+        self.assertGreater(tau["explorer"], 0.7)
+        self.assertLess(tau["achiever"], 0)
+        self.assertEqual(tau["uniform"], 0.0)
+        self.assertGreater(res["types"]["explorer"]["vs"]["achiever"]["diff"], 1.0)
+
+    def test_skips_phase_1_and_types_without_enough_reports(self):
+        sessions = self._explorer_sessions([("room", 5), ("chest", 2)])
+        res = compare.analyze(sessions, self._type_weights(), permutations=50, bootstrap=20)
+        self.assertTrue(res["types"]["explorer"]["skipped"])  # 2 reports < min 3
+        res1 = compare.analyze(sessions, self._type_weights(), phase=1, permutations=50, bootstrap=20)
+        self.assertEqual(res1["sessions_in_phase"], 0)
+
+    def test_replication_correlates_phase2_severities_with_phase1_weights(self):
+        sessions = self._explorer_sessions([("room", 5), ("chest", 3), ("boss", 1)])
+        wsets = sample_sets()
+        res = compare.analyze(sessions, wsets, permutations=50, bootstrap=20)
+        self.assertIn("rho", res["replication"]["explorer"])
+        self.assertGreater(res["replication"]["explorer"]["nodes"], 0)
 
 
 if __name__ == "__main__":

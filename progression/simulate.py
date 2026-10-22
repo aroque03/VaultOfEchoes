@@ -10,8 +10,8 @@ phase1  Uploads 10 sessions concurrently. Each player type rates every bug at a
         server's weights against an independent calculation here.
 phase2  Uploads 10 sessions whose ratings are planted to follow CAIS under the
         player's own weights. Checks the server stamps phase 2 and leaves the
-        weights untouched, then checks the ranking comparison finds the planted
-        relation (and finds none when ratings are shuffled).
+        weights untouched, then checks compare.py finds the planted relation (and
+        none when ratings are shuffled).
 
 Sessions are written to --out (default: a temp dir) so they can be inspected or
 fed to validate.py / cli.py. Player names start with "SIM-" for easy cleanup.
@@ -33,26 +33,15 @@ from typing import Dict, List, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from model import LEVELS, NODES, PLAYER_TYPES, level_nodes, node_id, weight_sets_from_dict  # noqa: E402
-from scoring import prioritize  # noqa: E402
+from model import (LEVELS, NODES, PLAYER_TYPES, level_nodes, next_open_nodes, node_id,  # noqa: E402
+                   weight_sets_from_dict)
+import compare  # noqa: E402
 from session import parse  # noqa: E402
 from validate import check, encounter_node, expected_bugs  # noqa: E402
 
 N_SESSIONS = 10
 PHASE1_SEVERITY = {"explorer": 5, "achiever": 3, "killer": 1, "runner": 2}
 OWN_BRANCHES = {"explorer": {"room"}, "achiever": {"chest"}, "killer": {"boss", "greenBoss"}, "runner": set()}
-
-# Same edges as DAG_EDGES in js/progression.js / api/shared/weights.js.
-DAG_EDGES: Dict[str, List[str]] = {}
-for _lv in LEVELS:
-    _nodes = level_nodes(_lv)
-    _branches = [n for n in _nodes if not NODES[n].mandatory]
-    DAG_EDGES[node_id(_lv, "entry")] = _branches + [node_id(_lv, "key")]
-    for _b in _branches:  # optional achievements can follow each other in any order
-        DAG_EDGES[_b] = [o for o in _branches if o != _b] + [node_id(_lv, "key")]
-    DAG_EDGES[node_id(_lv, "key")] = [node_id(_lv, "exit")]
-    DAG_EDGES[node_id(_lv, "exit")] = [node_id(_lv + 1, "entry")] if _lv < LEVELS[-1] else []
-
 
 # ---------------------------------------------------------------------------
 # Generation
@@ -151,22 +140,6 @@ def generate(phase: int, rate=None, seed: int = 7) -> List[dict]:
 # ---------------------------------------------------------------------------
 # Independent weight calculation (cross-checks api/shared/weights.js)
 # ---------------------------------------------------------------------------
-def next_open(last: str, completed: List[str]) -> List[str]:
-    """Next achievements still open after `last`, passing through completed ones."""
-    done, seen, out = set(completed), {last}, []
-    queue = list(DAG_EDGES[last])
-    while queue:
-        n = queue.pop(0)
-        if n in seen:
-            continue
-        seen.add(n)
-        if n in done:
-            queue.extend(DAG_EDGES[n])
-        else:
-            out.append(n)
-    return out
-
-
 def expected_weights(sessions: List[dict]):
     sums = {t: {n: 0.0 for n in NODES} for t in PLAYER_TYPES}
     counts = {t: {n: 0 for n in NODES} for t in PLAYER_TYPES}
@@ -175,55 +148,12 @@ def expected_weights(sessions: List[dict]):
             continue
         t = s["player_classification"]["player_type"]["dominant"]
         for r in s["bug_reports"]:
-            for nxt in next_open(r["completed_nodes"][-1], r["completed_nodes"]):
+            for nxt in next_open_nodes(r["completed_nodes"][-1], r["completed_nodes"]):
                 sums[t][nxt] += r["impact_rating"]
                 counts[t][nxt] += 1
     weights = {t: {n: (sums[t][n] / counts[t][n] if counts[t][n] else 1.0) for n in NODES}
                for t in PLAYER_TYPES}
     return weights, counts
-
-
-# ---------------------------------------------------------------------------
-# Ranking comparison
-# ---------------------------------------------------------------------------
-def _ranks(values: List[float]) -> List[float]:
-    order = sorted(range(len(values)), key=lambda i: values[i])
-    ranks = [0.0] * len(values)
-    i = 0
-    while i < len(order):
-        j = i
-        while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
-            j += 1
-        for k in range(i, j + 1):
-            ranks[order[k]] = (i + j) / 2.0 + 1
-        i = j + 1
-    return ranks
-
-
-def spearman(x: List[float], y: List[float]) -> float:
-    rx, ry = _ranks(x), _ranks(y)
-    n = len(x)
-    mx, my = sum(rx) / n, sum(ry) / n
-    cov = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
-    vx = sum((a - mx) ** 2 for a in rx) ** 0.5
-    vy = sum((b - my) ** 2 for b in ry) ** 0.5
-    return cov / (vx * vy) if vx and vy else 0.0
-
-
-def priority_vs_rating(sessions: List[dict], wsets) -> float:
-    """Spearman between human rating and CAIS-desc/PAIS-desc priority (own weight set)."""
-    ratings, priority = [], []
-    for s in sessions:
-        sess = parse(s)
-        if not sess.bug_reports:
-            continue
-        ranked = prioritize(sess.bug_reports, wsets[sess.classified_type])
-        n = len(ranked)
-        for r in ranked:
-            ratings.append(r["impact_rating"])
-            # Normalised so 1.0 = top priority within the player's own reports.
-            priority.append(1.0 if n == 1 else 1.0 - (r["rank"] - 1) / (n - 1))
-    return spearman(ratings, priority)
 
 
 # ---------------------------------------------------------------------------
@@ -339,7 +269,9 @@ def run_phase2(args) -> int:
         return 1
 
     failures = 0
-    rho = priority_vs_rating(sessions, wsets)
+    framework_tau = lambda ss: compare.analyze([parse(x) for x in ss], wsets, permutations=200,
+                                               bootstrap=50)["framework"]["mean_tau"]
+    rho = framework_tau(sessions)
     shuffled = json.loads(json.dumps(sessions))
     pool_r = [r["impact_rating"] for s in shuffled for r in s["bug_reports"]]
     random.Random(99).shuffle(pool_r)
@@ -347,8 +279,8 @@ def run_phase2(args) -> int:
     for s in shuffled:
         for r in s["bug_reports"]:
             r["impact_rating"] = next(it)
-    rho_null = priority_vs_rating(shuffled, wsets)
-    print("ranking vs rating: planted ρ = {:.2f}, shuffled ρ = {:.2f}".format(rho, rho_null))
+    rho_null = framework_tau(shuffled)
+    print("ranking vs rating (compare.py, tau-b): planted {:.2f}, shuffled {:.2f}".format(rho, rho_null))
     if rho < 0.6:
         print("  ✗ planted relation not recovered")
         failures += 1

@@ -21,6 +21,7 @@ session file or the **DOWNLOAD JSON** export (an array of sessions).
     python3 progression/cli.py session.json --weights weights.json --json     # machine-readable
 
     python3 progression/validate.py vault-sessions.json -v   # consistency checks
+    python3 progression/compare.py vault-sessions.json --weights phase1-weights.json -v   # Phase 2 analysis
 
     python3 -m unittest discover -s progression/tests -t progression
 
@@ -37,8 +38,10 @@ the four weight sets.
 | `session.py` | session JSON loader (game schema + export arrays), tolerant, warns instead of failing |
 | `cli.py` | the command line report and CSV export |
 | `validate.py` | consistency checks on session data (valid paths, outcomes, bug placement, report snapshots) |
+| `compare.py` | Phase 2 analysis: framework priority vs impact ratings, own vs other vs uniform weights, replication |
+| `simulate.py` | synthetic Phase 1/2 sessions for end-to-end tests against the live site |
 | `fixtures/` | a sample session in the game's format and illustrative (not real) weights |
-| `tests/` | 38 tests, including a hand-pinned worked example |
+| `tests/` | 45 tests, including a hand-pinned worked example |
 
 ## The model in one paragraph
 
@@ -76,6 +79,18 @@ they skipped there is unreachable forever, so it drops out of PAIS. Within an
 open level every incomplete node still counts, including branches earlier in the
 enumeration chain than ones already done — the chain order is an enumeration
 artefact and the game imposes no order on the branches.
+
+## Phase 2: why reports are compared across players
+
+Within one session the completed set only grows and every weight is positive, so
+CAIS never decreases over time: ranking one player's reports by CAIS is just time
+order, identical under every weight set (`test_within_a_session_every_weight_set_gives_time_order`).
+Weight sets can only be told apart across players with different completion sets,
+so `compare.py` pools reports per player type. Even then CAIS is dominated by how
+far a player has progressed; the weight sets differ only for reports at similar
+depth with different branches completed, so the own-vs-other test has limited power.
+The node-level replication check (Phase 2 severities vs Phase 1 weights) tests the
+weights more directly.
 
 ## Known limitation, by design
 
