@@ -86,6 +86,9 @@ canvas{
   background:rgba(6,8,12,.86);overflow-y:auto;
 }
 .overlay.show{display:flex}
+/* Auto margins centre a card that fits; one taller than the window starts at the top and scrolls
+   (align-items:center alone would push its top out of reach). */
+.overlay > .card{margin:auto}
 .card{
   width:100%;max-width:520px;background:var(--stone-1);
   border:3px solid var(--stone-3);box-shadow:0 5px 0 #000;
