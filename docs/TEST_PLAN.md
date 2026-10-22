@@ -54,6 +54,9 @@ use it only in persona 6, it skews classification.
 While playing, confirm each seeded bug appears where the agreed table says, and
 nowhere else:
 
+Each planted bug has a Planted Bug ID per chamber (`PB-L<chamber>-<KEY>`, e.g. `PB-L2-GEM`;
+`python3 progression/bugs.py planted` lists all 14). Encounters record it as `planted_id`.
+
 | Bug | Chamber | How to see it |
 |---|---|---|
 | wallClip | 1, 2, 3 | some wall tiles let you walk through (1/2/3 per chamber) |

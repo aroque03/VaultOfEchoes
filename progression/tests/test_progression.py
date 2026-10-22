@@ -39,6 +39,7 @@ from scoring import (  # noqa: E402
 )
 from session import load_all, parse  # noqa: E402
 import cli  # noqa: E402
+import bugs  # noqa: E402
 import compare  # noqa: E402
 import validate  # noqa: E402
 from model import PROGRESSION_EDGES, next_open_nodes  # noqa: E402
@@ -464,6 +465,82 @@ class TestCompare(unittest.TestCase):
         res = compare.analyze(sessions, wsets, permutations=50, bootstrap=20)
         self.assertIn("rho", res["replication"]["explorer"])
         self.assertGreater(res["replication"]["explorer"]["nodes"], 0)
+
+
+
+class TestPlantedBugs(unittest.TestCase):
+    def test_keys_and_ids_match_the_game(self):
+        """BUG_KEYS must mirror the `key` of each bug in BUG_CATALOG (js/config.js)."""
+        import re
+        with open(os.path.join(os.path.dirname(PKG), "js", "config.js")) as fh:
+            js = fh.read()
+        keys = dict(re.findall(r'(\w+):\s*\{\s*key:"(\w+)"', js))
+        self.assertEqual(keys, validate.BUG_KEYS)
+        self.assertIn('"PB-L" + level + "-" + BUG_CATALOG[bug].key.toUpperCase()', js)
+        self.assertEqual(len(validate.planted_bugs()), 14)
+        self.assertEqual(validate.planted_bug_id("phantomGem", 2), "PB-L2-GEM")
+
+    def test_validator_flags_a_wrong_planted_id(self):
+        sess = parse({"study_phase": 2, "player": {"id": "p"},
+                      "player_classification": {"player_type": {"dominant": "explorer"}},
+                      "bug_encounters": [{"type": "phantomGem", "node": "l2.chest", "chamber": 2,
+                                          "planted_id": "PB-L2-BOSS"}]})
+        self.assertTrue(any("planted_id PB-L2-BOSS" in e for e in validate.check(sess)[0]))
+
+
+class TestBugCoding(unittest.TestCase):
+    def _session(self):
+        return parse({"study_phase": 2, "player": {"id": "p1"},
+                      "player_classification": {"player_type": {"dominant": "achiever"}},
+                      "bug_encounters": [
+                          {"type": "wallClip", "node": "l2.entry", "chamber": 2, "timestamp": "2026-10-20T10:00:00.000Z"},
+                          {"type": "phantomGem", "node": "l2.chest", "chamber": 2, "timestamp": "2026-10-20T10:05:00.000Z"}],
+                      "bug_reports": [
+                          {"bug_id": "b-1-l2", "chamber": 2, "impact_rating": 4, "timestamp": "2026-10-20T10:05:20.000Z",
+                           "description": "a gem came back", "completed_nodes": ["l1.entry", "l2.entry", "l2.chest"]},
+                          {"bug_id": "b-2-l3", "chamber": 3, "impact_rating": 2, "timestamp": "2026-10-20T10:09:00.000Z",
+                           "description": "music cut out", "completed_nodes": ["l3.entry"]}]})
+
+    def test_infers_the_planted_bug_from_the_last_encounter_as_metadata(self):
+        sess = self._session()
+        rows = bugs.rows([sess], phase=2)
+        self.assertEqual(rows[0]["inferred_planted_id"], "PB-L2-GEM")  # derived for sessions without planted_id
+        self.assertEqual(rows[0]["seconds_after_encounter"], "20")
+        self.assertEqual(rows[1]["inferred_planted_id"], "")  # no encounter in chamber 3
+        self.assertEqual(rows[0]["bug_label"], "")  # labels are never filled automatically
+
+    def test_reexport_keeps_coded_labels(self):
+        sess = self._session()
+        with tempfile.TemporaryDirectory() as tmp:
+            sheet = os.path.join(tmp, "coding.csv")
+            bugs.export([sess], sheet, 2, None)
+            with open(sheet, newline="") as fh:
+                data = list(csv.DictReader(fh))
+            data[0]["bug_label"] = "PB-L2-GEM"
+            data[1]["bug_label"] = "audio-dropout"
+            with open(sheet, "w", newline="") as fh:
+                w = csv.DictWriter(fh, fieldnames=bugs.COLUMNS); w.writeheader(); w.writerows(data)
+            n, kept = bugs.export([sess], os.path.join(tmp, "again.csv"), 2, sheet)
+            self.assertEqual((n, kept), (2, 2))
+            self.assertEqual(bugs.load_labels(sheet), {data[0]["report_key"]: "PB-L2-GEM",
+                                                      data[1]["report_key"]: "audio-dropout"})
+
+    def test_bug_ranking_orders_labelled_bugs_by_framework_and_by_rating(self):
+        def sess(i, rating, done):
+            s = parse({"study_phase": 2, "player": {"id": "p%d" % i},
+                       "player_classification": {"player_type": {"dominant": "achiever"}},
+                       "bug_reports": [{"bug_id": "b", "impact_rating": rating, "completed_nodes": done}]})
+            s.source = "s%d" % i
+            return s
+        early, mid, late = ["l1.entry"], ["l1.entry", "l1.key"], ["l1.entry", "l1.key", "l1.exit", "l2.entry"]
+        sessions = [sess(0, 2, early), sess(1, 3, mid), sess(2, 5, late), sess(3, 4, late)]
+        labels = {"s0#b": "PB-L1-WALL", "s1#b": "PB-L1-PWALL", "s2#b": "PB-L2-WALL", "s3#b": "PB-L2-WALL"}
+        res = compare.bug_ranking(sessions, sample_sets(), labels)
+        table = res["types"]["achiever"]["bugs"]
+        self.assertEqual([b["bug"] for b in table], ["PB-L2-WALL", "PB-L1-PWALL", "PB-L1-WALL"])
+        self.assertEqual(table[0]["reports"], 2)
+        self.assertAlmostEqual(table[0]["mean_rating"], 4.5)
+        self.assertAlmostEqual(res["types"]["achiever"]["tau"], 1.0)
 
 
 if __name__ == "__main__":

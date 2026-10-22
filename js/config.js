@@ -124,6 +124,9 @@ const BUGS = {};
 })();
 // Node an encounter is recorded at; nodeByLevel overrides it per chamber.
 const bugNode = (bug, level) => (BUG_CATALOG[bug].nodeByLevel || {})[level] || BUG_CATALOG[bug].node;
+// Planted Bug ID: one per bug per chamber it is placed in, e.g. PB-L2-GEM. Researchers match
+// each bug report's description to one of these.
+const plantedBugId = (bug, level) => "PB-L" + level + "-" + BUG_CATALOG[bug].key.toUpperCase();
 const activeBugsForLevel = n => { const b = BUGS[n] || {}; return Object.keys(b).filter(k => b[k]); };
 const anyBugConfigured = () => [1,2,3].some(l => activeBugsForLevel(l).length > 0);
 const SHOW_QA_BADGE = false;

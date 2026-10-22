@@ -371,6 +371,7 @@ function recordEncounter(bugType){
   if(state.progression.encounters.some(e => e.type===bugType && e.node===node)) return;
   state.progression.encounters.push({
     type: bugType, node: node, chamber: state.levelIdx+1,
+    planted_id: plantedBugId(bugType, state.levelIdx+1),
     timestamp: new Date().toISOString(),
     elapsed_ms: Date.now() - state.progression.startTime,
   });

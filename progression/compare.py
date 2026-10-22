@@ -27,6 +27,9 @@ tau-b, which handles the many ties a 1-5 scale produces.
   4. Replication: Phase 2's own mean severity per node and type (attributed with the
      Phase 1 rule) against the Phase 1 weights, Spearman rho over nodes with data in
      both.
+  5. Bug ranking (with --bug-labels, the coding sheet from bugs.py): per type, each
+     labelled bug's mean CAIS / mean PAIS under the type's own weights against its mean
+     rating; the framework's bug order vs the players' bug order, Kendall tau-b.
 
 Stdlib only.
 """
@@ -46,6 +49,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from model import NODES, PLAYER_TYPES, WeightSet, load_weights, next_open_nodes  # noqa: E402
 from scoring import cais, pais  # noqa: E402
 from session import Session, load_all  # noqa: E402
+import bugs  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +141,8 @@ def _pool(sessions: List[Session], ws: WeightSet) -> Tuple[List[float], List[Tup
 # Analysis
 # ---------------------------------------------------------------------------
 def analyze(sessions: List[Session], wsets: Dict[str, WeightSet], phase: int = 2,
-            min_reports: int = 3, permutations: int = 2000, bootstrap: int = 1000, seed: int = 1) -> dict:
+            min_reports: int = 3, permutations: int = 2000, bootstrap: int = 1000, seed: int = 1,
+            bug_labels: Optional[Dict[str, str]] = None) -> dict:
     rng = random.Random(seed)
     uniform = uniform_weight_set()
     in_phase = [s for s in sessions if s.study_phase == phase]
@@ -188,6 +193,8 @@ def analyze(sessions: List[Session], wsets: Dict[str, WeightSet], phase: int = 2
     result = {"phase": phase, "sessions_in_phase": len(in_phase), "types": types,
               "within_session": {"sessions": len(within), "mean_tau": sum(within) / len(within) if within else None},
               "replication": replication(in_phase, wsets)}
+    if bug_labels is not None:
+        result["bug_ranking"] = bug_ranking(in_phase, wsets, bug_labels)
     if not used:
         return result
 
@@ -207,6 +214,38 @@ def analyze(sessions: List[Session], wsets: Dict[str, WeightSet], phase: int = 2
     result["framework"] = {"mean_tau": observed, "permutations": permutations,
                            "p": (hits + 1) / (permutations + 1)}
     return result
+
+
+def bug_ranking(sessions: List[Session], wsets: Dict[str, WeightSet], labels: Dict[str, str]) -> dict:
+    """Per type: each labelled bug's mean CAIS, mean PAIS and mean rating; tau-b between the two orders."""
+    acc: Dict[str, Dict[str, List[list]]] = {t: {} for t in PLAYER_TYPES}
+    unlabelled = 0
+    for s in sessions:
+        if s.classified_type not in PLAYER_TYPES:
+            continue
+        for i, r in enumerate(s.bug_reports):
+            if not isinstance(r.get("impact_rating"), (int, float)) or not r.get("completed_nodes"):
+                continue
+            label = labels.get(bugs.report_key(s, i, r))
+            if not label:
+                unlabelled += 1
+                continue
+            c, p = priority_key(r["completed_nodes"], wsets[s.classified_type])
+            acc[s.classified_type].setdefault(label, []).append([c, p, r["impact_rating"]])
+    out = {"unlabelled": unlabelled, "types": {}}
+    for t, by_bug in acc.items():
+        table = []
+        for label, xs in by_bug.items():
+            n = len(xs)
+            table.append({"bug": label, "reports": n, "mean_cais": sum(x[0] for x in xs) / n,
+                          "mean_pais": sum(x[1] for x in xs) / n, "mean_rating": sum(x[2] for x in xs) / n})
+        table.sort(key=lambda b: (-b["mean_cais"], -b["mean_pais"]))
+        tau = None
+        if len(table) >= 3:
+            tau = kendall_tau_b([b["mean_rating"] for b in table],
+                                [(round(b["mean_cais"], 9), round(b["mean_pais"], 9)) for b in table])
+        out["types"][t] = {"bugs": table, "tau": tau}
+    return out
 
 
 def replication(sessions: List[Session], wsets: Dict[str, WeightSet], min_n: int = 1) -> dict:
@@ -269,6 +308,19 @@ def print_report(res: dict, verbose: bool = False) -> None:
     rep = res["replication"]
     print("4. Replication (rho)      " + " · ".join(
         "{} {} (k={})".format(t, _fmt(v["rho"]), v["nodes"]) for t, v in rep.items()))
+    if "bug_ranking" in res:
+        br = res["bug_ranking"]
+        print("5. Bug ranking            framework order (mean CAIS, PAIS) vs mean rating{}".format(
+            " · {} reports without a label left out".format(br["unlabelled"]) if br["unlabelled"] else ""))
+        for t, v in br["types"].items():
+            if not v["bugs"]:
+                continue
+            print("   {:9} tau-b {} over {} bugs".format(t, _fmt(v["tau"]), len(v["bugs"])))
+            by_rating = sorted(v["bugs"], key=lambda b: -b["mean_rating"])
+            for i, b in enumerate(v["bugs"], 1):
+                print("     {}. {:24} CAIS {:6.2f}  PAIS {:6.2f}  rating {:4.2f} (rank {})  n={}".format(
+                    i, b["bug"][:24], b["mean_cais"], b["mean_pais"], b["mean_rating"],
+                    by_rating.index(b) + 1, b["reports"]))
     if verbose:
         print()
         for t, v in res["types"].items():
@@ -289,13 +341,15 @@ def main(argv=None) -> int:
     ap.add_argument("--permutations", type=int, default=2000, help="shuffles for the baseline (default 2000)")
     ap.add_argument("--bootstrap", type=int, default=1000, help="session resamples for intervals (default 1000)")
     ap.add_argument("--seed", type=int, default=1, help="random seed for the shuffles")
+    ap.add_argument("--bug-labels", help="coding sheet from bugs.py export, with bug_label filled")
     ap.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     ap.add_argument("-v", "--verbose", action="store_true", help="per-type detail")
     args = ap.parse_args(argv)
 
     sessions = [s for path in args.sessions for s in load_all(path)]
+    labels = bugs.load_labels(args.bug_labels) if args.bug_labels else None
     res = analyze(sessions, load_weights(args.weights), args.phase, args.min_reports,
-                  args.permutations, args.bootstrap, args.seed)
+                  args.permutations, args.bootstrap, args.seed, labels)
     if args.json:
         print(json.dumps(res, indent=2))
     else:

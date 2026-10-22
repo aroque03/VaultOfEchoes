@@ -166,6 +166,15 @@ function injectedConfigAll(){
   return out;
 }
 
+// Every bug planted in this session, with its Planted Bug ID.
+function plantedBugsAll(){
+  const out = [];
+  [1,2,3].forEach(l => activeBugsForLevel(l).forEach(b => out.push({
+    id: plantedBugId(b, l), bug: b, chamber: l, node: "l" + l + "." + bugNode(b, l),
+  })));
+  return out;
+}
+
 function buildSession(){
   return {
     schema: "vault-of-echoes.study-session/v1",
@@ -198,6 +207,7 @@ function buildSession(){
     bug_reports: state.bugs,
     bug_encounters: state.progression.encounters,
     injectedConfig: injectedConfigAll(),
+    planted_bugs: plantedBugsAll(),
     finalScore: state.score,
     scoring: (() => {
       const pt = classifyPlayerType().dominant;

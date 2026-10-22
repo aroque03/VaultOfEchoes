@@ -39,6 +39,24 @@ BUG_TABLE: Dict[str, Tuple[str, Tuple[int, ...]]] = {
 BUG_NODE_BY_LEVEL: Dict[str, Dict[int, str]] = {"undeadBoss": {3: "greenBoss"}}
 
 
+# The `key` of each bug in BUG_CATALOG; Planted Bug IDs are built from it (e.g. PB-L2-GEM).
+BUG_KEYS: Dict[str, str] = {
+    "wallClip": "wall", "phantomWall": "pwall", "invisiblePlayer": "invis", "phantomGem": "gem",
+    "corruptNote": "corrupt", "undeadBoss": "boss", "fakeHeal": "heal", "stuckKey": "key",
+}
+
+
+def planted_bug_id(bug: str, chamber: int) -> str:
+    """Planted Bug ID, as plantedBugId() in js/config.js."""
+    return "PB-L{}-{}".format(chamber, BUG_KEYS[bug].upper())
+
+
+def planted_bugs() -> List[Tuple[str, str, int, str]]:
+    """Every planted bug: (Planted Bug ID, bug, chamber, encounter node), in chamber order."""
+    return [(planted_bug_id(b, c), b, c, encounter_node(b, c))
+            for c in LEVELS for b in BUG_TABLE if c in BUG_TABLE[b][1]]
+
+
 def encounter_node(bug: str, chamber: int) -> str:
     phase = BUG_NODE_BY_LEVEL.get(bug, {}).get(chamber, BUG_TABLE[bug][0])
     return node_id(chamber, phase)
@@ -146,6 +164,9 @@ def check(sess: Session) -> Tuple[List[str], List[str]]:
             errors.append("{} encounter has no chamber".format(bug))
         elif nid != encounter_node(bug, ch):
             errors.append("{} encounter at {} (expected {})".format(bug, nid, encounter_node(bug, ch)))
+        pid = e.get("planted_id")
+        if pid is not None and isinstance(ch, int) and ch in chambers and pid != planted_bug_id(bug, ch):
+            errors.append("{} encounter has planted_id {} (expected {})".format(bug, pid, planted_bug_id(bug, ch)))
         if (bug, nid) in enc_seen:
             errors.append("{} at {} recorded twice".format(bug, nid))
         enc_seen.add((bug, nid))

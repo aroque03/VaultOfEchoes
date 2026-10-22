@@ -21,7 +21,10 @@ session file or the **DOWNLOAD JSON** export (an array of sessions).
     python3 progression/cli.py session.json --weights weights.json --json     # machine-readable
 
     python3 progression/validate.py vault-sessions.json -v   # consistency checks
-    python3 progression/compare.py vault-sessions.json --weights phase1-weights.json -v   # Phase 2 analysis
+    python3 progression/bugs.py planted                       # the 14 Planted Bug IDs
+    python3 progression/bugs.py export vault-sessions.json --out bug-coding.csv   # coding sheet
+    python3 progression/bugs.py summary bug-coding.csv        # labels vs encounter guesses
+    python3 progression/compare.py vault-sessions.json --weights phase1-weights.json --bug-labels bug-coding.csv -v   # Phase 2 analysis
 
     python3 -m unittest discover -s progression/tests -t progression
 
@@ -38,10 +41,11 @@ the four weight sets.
 | `session.py` | session JSON loader (game schema + export arrays), tolerant, warns instead of failing |
 | `cli.py` | the command line report and CSV export |
 | `validate.py` | consistency checks on session data (valid paths, outcomes, bug placement, report snapshots) |
-| `compare.py` | Phase 2 analysis: framework priority vs impact ratings, own vs other vs uniform weights, replication |
+| `compare.py` | Phase 2 analysis: framework priority vs impact ratings, own vs other vs uniform weights, replication, bug ranking |
+| `bugs.py` | bug coding sheet: match each report to a Planted Bug ID (or a new label), encounter guess as metadata |
 | `simulate.py` | synthetic Phase 1/2 sessions for end-to-end tests against the live site |
 | `fixtures/` | a sample session in the game's format and illustrative (not real) weights |
-| `tests/` | 45 tests, including a hand-pinned worked example |
+| `tests/` | 50 tests, including a hand-pinned worked example |
 
 ## The model in one paragraph
 

@@ -37,7 +37,7 @@ from model import (LEVELS, NODES, PLAYER_TYPES, level_nodes, next_open_nodes, no
                    weight_sets_from_dict)
 import compare  # noqa: E402
 from session import parse  # noqa: E402
-from validate import check, encounter_node, expected_bugs  # noqa: E402
+from validate import check, encounter_node, expected_bugs, planted_bug_id  # noqa: E402
 
 N_SESSIONS = 10
 PHASE1_SEVERITY = {"explorer": 5, "achiever": 3, "killer": 1, "runner": 2}
@@ -110,7 +110,7 @@ def make_session(rng: random.Random, idx: int, ptype: str, phase: int,
             nid = encounter_node(bug, lv)
             if nid in path and rng.random() < 0.5:
                 at = completions[path.index(nid)]
-                encounters.append({"type": bug, "node": nid, "chamber": lv,
+                encounters.append({"type": bug, "node": nid, "chamber": lv, "planted_id": planted_bug_id(bug, lv),
                                    "timestamp": at["timestamp"], "elapsed_ms": at["elapsed_ms"]})
 
     return {
