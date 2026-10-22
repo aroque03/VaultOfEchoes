@@ -17,9 +17,10 @@ tau-b, which handles the many ties a 1-5 scale produces.
 
   0. Within-session order: mean per-session tau-b of ratings vs time order. The same
      for every weight set; it asks whether later bugs bother players more.
-  1. Framework vs ratings: per-type tau-b under that type's own weight set, combined
-     weighted by reports, against a permutation baseline (ratings shuffled within
-     each type).
+  1. Framework vs ratings (answers SP3): per-type tau-b under that type's own weight
+     set, combined weighted by reports, against a permutation baseline (ratings
+     shuffled within each type), with a bootstrap 95% interval (sessions resampled
+     within each type).
   2. Own vs other weight sets: per type, tau-b(own) - tau-b(other) for each other
      set, with a bootstrap 95% interval from resampling that type's sessions.
   3. Own vs uniform weights: the same against every node weighted 1, i.e. CAIS = how
@@ -128,6 +129,11 @@ def _tau0(xs, ys) -> float:
     return 0.0 if tau is None else tau  # an ordering that ties everything predicts nothing
 
 
+def _ci95(xs: List[float]) -> List[float]:
+    xs = sorted(xs)
+    return [xs[int(0.025 * (len(xs) - 1))], xs[int(0.975 * (len(xs) - 1))]]
+
+
 def _pool(sessions: List[Session], ws: WeightSet) -> Tuple[List[float], List[Tuple[float, float]]]:
     ratings, keys = [], []
     for s in sessions:
@@ -155,6 +161,7 @@ def analyze(sessions: List[Session], wsets: Dict[str, WeightSet], phase: int = 2
     within = [t for t in within if t is not None]
 
     types = {}
+    own_sessions = {}  # type -> [(ratings, own-set priority keys)] per session, for comparison 1's interval
     for t, group in by_type.items():
         ratings, _ = _pool(group, wsets[t])
         if len(ratings) < min_reports or len(set(ratings)) < 2:
@@ -167,6 +174,7 @@ def analyze(sessions: List[Session], wsets: Dict[str, WeightSet], phase: int = 2
             per_session.append(([r["impact_rating"] for r in reps],
                                 {name: [priority_key(r["completed_nodes"], ws) for r in reps]
                                  for name, ws in sets.items()}))
+        own_sessions[t] = [(rs, ks[t]) for rs, ks in per_session]
         def taus_for(sample):
             ys = [y for rs, _ in sample for y in rs]
             return {name: _tau0(ys, [k for _, ks in sample for k in ks[name]]) for name in sets}
@@ -178,13 +186,10 @@ def analyze(sessions: List[Session], wsets: Dict[str, WeightSet], phase: int = 2
             bt = taus_for(sample)
             for o in diffs:
                 diffs[o].append(bt[t] - bt[o])
-        def ci(xs):
-            xs = sorted(xs)
-            return [xs[int(0.025 * (len(xs) - 1))], xs[int(0.975 * (len(xs) - 1))]]
         types[t] = {
             "sessions": len(group), "reports": len(ratings), "skipped": False,
             "tau": taus,
-            "vs": {o: {"diff": taus[t] - taus[o], "ci95": ci(diffs[o]),
+            "vs": {o: {"diff": taus[t] - taus[o], "ci95": _ci95(diffs[o]),
                        "share_positive": sum(1 for d in diffs[o] if d > 0) / float(bootstrap)}
                    for o in diffs},
         }
@@ -211,8 +216,20 @@ def analyze(sessions: List[Session], wsets: Dict[str, WeightSet], phase: int = 2
             acc += _tau0(sh, ks) * len(ys)
         if acc / total_reports >= observed - 1e-12:
             hits += 1
-    result["framework"] = {"mean_tau": observed, "permutations": permutations,
-                           "p": (hits + 1) / (permutations + 1)}
+    # Interval: resample sessions within each type, recombine weighted by reports.
+    boot = []
+    for _ in range(bootstrap):
+        acc = n = 0.0
+        for t in used:
+            data = own_sessions[t]
+            sample = [data[rng.randrange(len(data))] for _ in data]
+            ys = [y for rs, _ in sample for y in rs]
+            ks = [k for _, kk in sample for k in kk]
+            acc += _tau0(ys, ks) * len(ys)
+            n += len(ys)
+        boot.append(acc / n)
+    result["framework"] = {"mean_tau": observed, "ci95": _ci95(boot), "reports": total_reports,
+                           "permutations": permutations, "p": (hits + 1) / (permutations + 1)}
     return result
 
 
@@ -295,8 +312,10 @@ def print_report(res: dict, verbose: bool = False) -> None:
         print("No player type has enough rated reports to compare.")
         return
     f = res["framework"]
-    print("1. Framework vs ratings   tau-b {} (own sets, weighted by reports) · permutation p {} ({} shuffles)".format(
-        _fmt(f["mean_tau"]), _p(f["p"]), f["permutations"]))
+    print("1. Framework vs ratings   tau-b {} [95% CI {}, {}] over {} reports · permutation p {}   <- SP3".format(
+        _fmt(f["mean_tau"]), _fmt(f["ci95"][0]), _fmt(f["ci95"][1]), f["reports"], _p(f["p"])))
+    print("                          (own weight set per type, reports pooled per type; {} shuffles)".format(
+        f["permutations"]))
     print("2. Own vs other sets      tau-b own minus other [95% CI]:")
     for t, v in used.items():
         parts = ["{} {} [{}, {}]".format(o, _fmt(x["diff"]), _fmt(x["ci95"][0]), _fmt(x["ci95"][1]))

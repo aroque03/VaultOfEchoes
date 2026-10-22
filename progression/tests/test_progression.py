@@ -452,6 +452,17 @@ class TestCompare(unittest.TestCase):
         self.assertEqual(tau["uniform"], 0.0)
         self.assertGreater(res["types"]["explorer"]["vs"]["achiever"]["diff"], 1.0)
 
+    def test_framework_result_has_a_95_interval_around_tau(self):
+        # 18 one-report players; ratings follow the explorer weights.
+        sessions = self._explorer_sessions([("room", 5), ("room", 4), ("chest", 2),
+                                            ("chest", 1), ("boss", 2), ("boss", 1)] * 3)
+        f = compare.analyze(sessions, self._type_weights(), permutations=200, bootstrap=300)["framework"]
+        lo, hi = f["ci95"]
+        self.assertLessEqual(lo, f["mean_tau"])
+        self.assertGreaterEqual(hi, f["mean_tau"])
+        self.assertGreater(lo, 0)  # the whole interval is positive
+        self.assertEqual(f["reports"], 18)
+
     def test_skips_phase_1_and_types_without_enough_reports(self):
         sessions = self._explorer_sessions([("room", 5), ("chest", 2)])
         res = compare.analyze(sessions, self._type_weights(), permutations=50, bootstrap=20)

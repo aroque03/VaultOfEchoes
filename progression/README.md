@@ -45,7 +45,7 @@ the four weight sets.
 | `bugs.py` | bug coding sheet: match each report to a Planted Bug ID (or a new label), encounter guess as metadata |
 | `simulate.py` | synthetic Phase 1/2 sessions for end-to-end tests against the live site |
 | `fixtures/` | a sample session in the game's format and illustrative (not real) weights |
-| `tests/` | 50 tests, including a hand-pinned worked example |
+| `tests/` | 51 tests, including a hand-pinned worked example |
 
 ## The model in one paragraph
 
