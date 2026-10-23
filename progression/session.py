@@ -47,6 +47,7 @@ class Session:
     study_phase: int = 1
     source: str = ""
     classified_type: str = ""
+    self_reported_type: str = ""  # the player's own answer after chamber 3 ("" if none)
     seed: Optional[int] = None
     build: str = ""
     node_completions: List[dict] = field(default_factory=list)
@@ -133,12 +134,15 @@ def parse(data: Dict[str, Any]) -> Session:
         if val not in BRANCH_OUTCOMES:
             warn.append("branch outcome {!r} for {} not one of {}".format(val, nid, BRANCH_OUTCOMES))
 
-    classification = (data.get("player_classification", {}) or {}).get("player_type", {}) or {}
+    pc = data.get("player_classification", {}) or {}
+    classification = pc.get("player_type", {}) or {}
+    self_reported = str((pc.get("self_reported") or {}).get("type") or "").lower()
     ptype = str(classification.get("dominant") or player.get("classified_type") or "").lower()
 
     return Session(
         player_id=str(player.get("id", "")),
         study_phase=2 if data.get("study_phase") == 2 else 1,
+        self_reported_type=self_reported,
         classified_type=ptype,
         seed=meta.get("seed"),
         build=str(meta.get("build", "")),

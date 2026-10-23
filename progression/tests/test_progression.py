@@ -291,6 +291,12 @@ class TestSessionLoader(unittest.TestCase):
         self.assertIn("out of range", joined)
         self.assertIn("unknown nodes", joined)
 
+    def test_reads_the_self_reported_type(self):
+        sess = parse({"player_classification": {"player_type": {"dominant": "killer"},
+                                                "self_reported": {"type": "Explorer", "statement": "..."}}})
+        self.assertEqual(sess.self_reported_type, "explorer")
+        self.assertEqual(parse({}).self_reported_type, "")
+
     def test_counts_only_explicitly_unreported_encounters(self):
         sess = parse({"bug_encounters": [
             {"bug_id": "a", "reported": True}, {"bug_id": "b", "reported": False},
@@ -490,6 +496,11 @@ class TestPlantedBugs(unittest.TestCase):
         self.assertIn('"PB-L" + level + "-" + BUG_CATALOG[bug].key.toUpperCase()', js)
         self.assertEqual(len(validate.planted_bugs()), 14)
         self.assertEqual(validate.planted_bug_id("phantomGem", 2), "PB-L2-GEM")
+
+    def test_validator_checks_the_self_reported_type(self):
+        data = json.load(open(SAMPLE_SESSION))
+        data["player_classification"]["self_reported"] = {"type": "socializer"}
+        self.assertTrue(any("self-reported type" in e for e in validate.check(parse(data))[0]))
 
     def test_validator_flags_a_wrong_planted_id(self):
         sess = parse({"study_phase": 2, "player": {"id": "p"},

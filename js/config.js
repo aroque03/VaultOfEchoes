@@ -87,7 +87,14 @@ const SEV_HINT = {
 const GREEN_BOSS_HP = 5;
 const INVISIBLE_STEPS = 5;
 const HUM_ATTEMPT_WINDOW_MS = 10000;
-const RUNNER_THRESHOLD = 3;  // classified "runner" if no type total reaches this (Drachen et al. 2009)  // a hum counts as a room attempt only if repeated within this   // invisiblePlayer: avatar reappears after this many steps
+const RUNNER_THRESHOLD = 3;
+// Post-game question: "Which best describes how you played?" (no type names shown to players).
+const SELF_TYPE_STATEMENTS = {
+  explorer: "I wanted to find every hidden room and secret.",
+  achiever: "I wanted to collect all the gems and treasure.",
+  killer:   "I wanted to fight and defeat the monsters and bosses.",
+  runner:   "I wanted to reach the exit as directly as I could.",
+};  // classified "runner" if no type total reaches this (Drachen et al. 2009)  // a hum counts as a room attempt only if repeated within this   // invisiblePlayer: avatar reappears after this many steps
 
 // Single source of truth for injected bugs (also read by admin.html).
 const BUG_CATALOG = {

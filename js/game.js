@@ -26,7 +26,8 @@ const state = {
 
 function resetProgression(){
   return {completions:[], encounters:[], branchOutcomes:{}, branchAttempts:{},
-    startTime:Date.now(), enemiesKilled:0, bossKilled:false, swordSwung:false, levelEngagement:{}};
+    startTime:Date.now(), enemiesKilled:0, bossKilled:false, swordSwung:false, levelEngagement:{},
+    selfReport:null};
 }
 
 // ---------- level loading ----------

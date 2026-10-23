@@ -4,7 +4,7 @@ const el = id => document.getElementById(id);
 const overlays = {
   login:el("loginOverlay"), intro:el("introOverlay"), tut:el("tutOverlay"), tut2:el("tut2Overlay"),
   clue:el("clueOverlay"), level:el("levelOverlay"), bug:el("bugOverlay"), win:el("winOverlay"),
-  over:el("overOverlay"),
+  over:el("overOverlay"), type:el("typeOverlay"),
 };
 function showOverlay(name){
   Object.values(overlays).forEach(o=>o.classList.remove("show"));
@@ -204,6 +204,34 @@ function openNote(content){
   el("clueTitle").textContent = "Wren's Journal";
   el("clueText").textContent = content;
   showOverlay("clue");
+}
+
+// Ask the player's own view of their play style, then continue (statements in random order).
+function askPlayerType(done){
+  const order = Object.keys(SELF_TYPE_STATEMENTS);
+  for(let i = order.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  let chosen = null;
+  const box = el("typeChoices"); box.innerHTML = "";
+  order.forEach(type => {
+    const b = document.createElement("button");
+    b.textContent = SELF_TYPE_STATEMENTS[type];
+    b.addEventListener("click", () => {
+      chosen = type;
+      box.querySelectorAll("button").forEach(x => x.classList.toggle("sel", x === b));
+      el("typeSubmit").disabled = false;
+    });
+    box.appendChild(b);
+  });
+  el("typeSubmit").disabled = true;
+  el("typeSubmit").onclick = () => {
+    if(!chosen) return;
+    state.progression.selfReport = {
+      type: chosen, statement: SELF_TYPE_STATEMENTS[chosen], order, answered_at: new Date().toISOString(),
+    };
+    showOverlay(null);
+    done();
+  };
+  showOverlay("type");
 }
 
 function winGame(){
@@ -682,8 +710,7 @@ el("clueBtn").addEventListener("click", ()=>{
 el("levelBtn").addEventListener("click", ()=>{
   if(state.levelIdx >= CHAMBERS.length-1){
     stopMusic();
-    showOverlay(null);
-    winGame();
+    askPlayerType(winGame);  // required answer; the session uploads in winGame()
   } else {
     loadLevel(state.levelIdx+1);
     clearKeys();

@@ -45,7 +45,7 @@ def score_reports(sess, wsets, verify=False):
 
 def write_csv(path, sessions, wsets):
     """One row per bug report: identifiers, the player's rating, CAIS/PAIS under each type."""
-    cols = ["source", "player_id", "study_phase", "classified_type", "bug_id", "chamber",
+    cols = ["source", "player_id", "study_phase", "classified_type", "self_reported_type", "bug_id", "chamber",
             "impact_rating", "completed_count"]
     for t in PLAYER_TYPES:
         cols += ["cais_" + t, "pais_" + t]
@@ -55,7 +55,7 @@ def write_csv(path, sessions, wsets):
         w.writerow(cols)
         for sess in sessions:
             for row in score_reports(sess, wsets):
-                line = [sess.source, sess.player_id, sess.study_phase, sess.classified_type,
+                line = [sess.source, sess.player_id, sess.study_phase, sess.classified_type, sess.self_reported_type,
                         row["bug_id"], row["chamber"], row["impact_rating"],
                         row["scores"][PLAYER_TYPES[0]]["completed_count"]]
                 for t in PLAYER_TYPES:

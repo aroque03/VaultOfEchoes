@@ -122,7 +122,10 @@ def make_session(rng: random.Random, idx: int, ptype: str, phase: int,
         "progression_graph": {"node_completions": completions, "branch_outcomes": outcomes,
                               "rooms_found": {}},
         "player_classification": {"level_engagement": {},
-                                  "player_type": {"dominant": ptype, "totals": {}, "tiebroken": False}},
+                                  "player_type": {"dominant": ptype, "totals": {}, "tiebroken": False},
+                                  # Finished runs answer the post-game question; most agree with play.
+                                  "self_reported": ({"type": ptype if rng.random() < 0.8 else rng.choice(PLAYER_TYPES)}
+                                                    if finished else None)},
         "bug_reports": reports,
         "bug_encounters": encounters,
         "injectedConfig": {str(lv): expected_bugs(lv) for lv in LEVELS},

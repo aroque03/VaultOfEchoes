@@ -120,6 +120,11 @@ def check(sess: Session) -> Tuple[List[str], List[str]]:
             errors.append("{} reached without leaving chamber {}".format(nid, lv - 1))
         seen.add(nid)
         timeline.append((nid, ts))
+    if sess.self_reported_type and sess.self_reported_type not in PLAYER_TYPES:
+        errors.append("self-reported type {!r} is not one of {}".format(
+            sess.self_reported_type, ", ".join(PLAYER_TYPES)))
+    if node_id(LEVELS[-1], "exit") in seen and not sess.self_reported_type:
+        warnings.append("finished run without a self-reported type (recorded before the question existed?)")
     if node_id(LEVELS[-1], "exit") not in seen:
         reached = max([level_of(n) for n in seen] or [0])
         warnings.append("incomplete run (reached chamber {})".format(reached))

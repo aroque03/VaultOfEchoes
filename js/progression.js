@@ -203,6 +203,8 @@ function buildSession(){
     player_classification: {
       level_engagement: state.progression.levelEngagement || {},
       player_type: classifyPlayerType(),
+      // Asked after chamber 3: {type, statement, order shown, answered_at}; null if not reached.
+      self_reported: state.progression.selfReport || null,
     },
     bug_reports: state.bugs,
     bug_encounters: state.progression.encounters,
