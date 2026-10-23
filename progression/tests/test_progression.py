@@ -469,6 +469,69 @@ class TestCompare(unittest.TestCase):
         self.assertGreater(lo, 0)  # the whole interval is positive
         self.assertEqual(f["reports"], 18)
 
+    def test_graph_fit_picks_the_graph_whose_weights_match_the_ratings(self):
+        # Weights: each type values its own branch at 5, everything else 1, all with data.
+        wsets = self._type_weights()
+        for ws in wsets.values():
+            ws.counts = {n: 1 for n in NODES}
+        # An explorer whose ratings are exactly what the explorer graph predicts.
+        # After l1.boss the severity goes to room, chest, key; after l1.chest to room, boss, key.
+        # Only the explorer graph (room = 5) predicts 7/3 for both.
+        after_boss, after_chest = ["l1.entry", "l1.boss"], ["l1.entry", "l1.chest"]
+        ex = wsets["explorer"]
+        reports = [{"bug_id": "b%d" % i, "impact_rating": round(compare.predicted_rating(d, ex), 6), "completed_nodes": d}
+                   for i, d in enumerate([after_boss, after_chest])]
+        sess = parse({"study_phase": 2, "player": {"id": "p"}, "bug_reports": reports,
+                      "player_classification": {"player_type": {"dominant": "explorer"},
+                                                "self_reported": {"type": "killer"}}})
+        fit = compare.graph_fit([sess], wsets, permutations=50)
+        p = fit["players"][0]
+        self.assertEqual(p["best"], ["explorer"])
+        self.assertAlmostEqual(p["mae"]["explorer"], 0.0, places=5)
+        self.assertEqual(fit["derived"]["matches"], 1)
+        self.assertEqual(fit["self_reported"]["matches"], 0)  # said killer, explorer graph fit best
+
+    def test_predicted_rating_uses_graph_mean_for_nodes_without_data(self):
+        ws = self._type_weights()["explorer"]
+        ws.counts = {n: (1 if n == "l1.room" else 0) for n in NODES}  # only l1.room has data (weight 5)
+        # After l1.entry the severity goes to room, chest, boss, key: room 5, the rest fall back to 5.
+        self.assertAlmostEqual(compare.predicted_rating(["l1.entry"], ws), 5.0)
+
+    def test_identity_comparison_favors_the_type_whose_graph_matches_ratings(self):
+        # Ratings follow the explorer graph; behavior says killer, the players say explorer.
+        wsets = self._type_weights()
+        for ws in wsets.values():
+            ws.counts = {n: 1 for n in NODES}
+        sessions = []
+        for i, (branch, rating) in enumerate([("room", 5), ("room", 4), ("chest", 2), ("chest", 1),
+                                              ("boss", 2), ("boss", 1)] * 2):
+            sessions.append(parse({"study_phase": 2, "player": {"id": "p%d" % i},
+                                   "player_classification": {"player_type": {"dominant": "killer"},
+                                                             "self_reported": {"type": "explorer"}},
+                                   "bug_reports": [{"bug_id": "b", "impact_rating": rating,
+                                                    "completed_nodes": ["l1.entry", "l1." + branch]}]}))
+        res = compare.analyze(sessions, wsets, permutations=100, bootstrap=200)
+        ident = res["identity"]
+        self.assertEqual(ident["players"], 12)
+        self.assertGreater(ident["framework"]["self_reported"], ident["framework"]["derived"])
+        self.assertGreater(ident["framework"]["ci95"][0], 0)  # self-reported clearly better
+
+    def test_identity_graph_fit_favors_the_graph_that_predicts_the_ratings(self):
+        # Comparison 6 predicts from the nodes still ahead; ratings equal the explorer graph's predictions.
+        wsets = self._type_weights()
+        for ws in wsets.values():
+            ws.counts = {n: 1 for n in NODES}
+        after_boss, after_chest = ["l1.entry", "l1.boss"], ["l1.entry", "l1.chest"]
+        reports = [{"bug_id": "b%d" % i, "impact_rating": round(compare.predicted_rating(d, wsets["explorer"]), 6),
+                    "completed_nodes": d} for i, d in enumerate([after_boss, after_chest])]
+        sess = parse({"study_phase": 2, "player": {"id": "p"}, "bug_reports": reports,
+                      "player_classification": {"player_type": {"dominant": "killer"},
+                                                "self_reported": {"type": "explorer"}}})
+        res = compare.analyze([sess], wsets, permutations=20, bootstrap=20)
+        gf = res["identity"]["graph_fit"]
+        self.assertLess(gf["self_reported"], gf["derived"])
+        self.assertEqual((gf["self_better"], gf["derived_better"]), (1, 0))
+
     def test_skips_phase_1_and_types_without_enough_reports(self):
         sessions = self._explorer_sessions([("room", 5), ("chest", 2)])
         res = compare.analyze(sessions, self._type_weights(), permutations=50, bootstrap=20)

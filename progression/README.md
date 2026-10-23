@@ -41,11 +41,11 @@ the four weight sets.
 | `session.py` | session JSON loader (game schema + export arrays), tolerant, warns instead of failing |
 | `cli.py` | the command line report and CSV export |
 | `validate.py` | consistency checks on session data (valid paths, outcomes, bug placement, report snapshots) |
-| `compare.py` | Phase 2 analysis: framework priority vs impact ratings, own vs other vs uniform weights, replication, bug ranking |
+| `compare.py` | Phase 2 analysis: framework priority vs impact ratings, own vs other vs uniform weights, replication, bug ranking, graph fit per player (`--fit-csv`) |
 | `bugs.py` | bug coding sheet: match each report to a Planted Bug ID (or a new label), encounter guess as metadata |
 | `simulate.py` | synthetic Phase 1/2 sessions for end-to-end tests against the live site |
 | `fixtures/` | a sample session in the game's format and illustrative (not real) weights |
-| `tests/` | 51 tests, including a hand-pinned worked example |
+| `tests/` | 57 tests, including a hand-pinned worked example |
 
 ## The model in one paragraph
 
