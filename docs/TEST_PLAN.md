@@ -9,6 +9,23 @@ wiped before it does** (stage 5).
 
 Site: `https://nice-desert-0e3e7100f.1.azurestaticapps.net` · admin: `/admin.html`
 
+## Experiments and the sub-problems they answer
+
+Research question: can we establish an agnostic framework to measure a bug's impact on a
+player's experience based on their game play progression?
+
+| # | Experiment | Data | Answers | Result to report |
+|---|---|---|---|---|
+| 1 | Achievement graph for Vault of Echoes, plus Half-Life: Source mapped with the same rules (on hold) | game definitions | **SP1** representation independent of game | both graphs |
+| 2 | Phase 1: ~60 players play and report bugs | ratings attributed to the next open achievements | input for SP2 | measured weights per player type (frozen) |
+| 3 | Phase 2: ~60 new players play with the weights frozen | reports, 1–5 ratings, self-reported type | **SP3** agreement with players | comparison 1: τ-b, 95% interval, p-value |
+| 4 | Bug coding: Phase 2 reports matched to Planted Bug IDs | report descriptions | **SP2** quantify and prioritize bugs | bugs ranked per type (comparison 5) |
+| 5 | Persona alignment: stated vs observed type | self-report, behavior, ratings | extends SP1 and SP3 | which graph fits each player (comparison 6); derived vs self-reported type as the graph to use (1b, 6b) |
+
+Comparisons 0, 2, 3 and 4 in `compare.py` are context; they aren't needed to answer the
+sub-problems. If the self-reported type picks the graph as well as behavior does, the
+framework needs no game-specific classification rules, which supports the "agnostic" claim.
+
 | Stage | What | Who | Time |
 |---|---|---|---|
 | 0 | Clear the container | you (Azure portal) | 2 min |
