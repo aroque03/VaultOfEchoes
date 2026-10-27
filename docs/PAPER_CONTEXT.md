@@ -252,7 +252,7 @@ measurement in enterprise software and in video game software.
   per-game calibration?
 - **Phase 2 tester count** per type: set once testers are identified.
 - **Survey** (fixed contexts, time spent): not built; would test type-specific weights more directly.
-- **The X key** reveals all hidden rooms; it is still available to participants.
+- **Typing X Y Z** reveals all hidden rooms; it is still available to participants.
 - Possible follow-up model: a classifier from behavior to self-reported type
   (multinomial logistic regression, cross-validated), or partial pooling of graph
   weights. These are statistical models; don't describe them as "AI".

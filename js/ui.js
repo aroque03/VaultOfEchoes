@@ -625,6 +625,8 @@ function toast(msg){
 
 // ---------- input wiring ----------
 const MOVE_KEYS = new Set(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","w","a","s","d","W","A","S","D"]);
+const REVEAL_SEQ = ["x","y","z"];  // typed in order reveals all secrets
+let revealIdx = 0;
 window.addEventListener("keydown", e=>{
   ensureAudio();
   const anyOverlay = Object.values(overlays).some(o=>o.classList.contains("show"));
@@ -636,7 +638,10 @@ window.addEventListener("keydown", e=>{
   const key = e.key.length===1 ? e.key.toLowerCase() : e.key;
   if(MOVE_KEYS.has(e.key)){ state.keys.add(key); e.preventDefault(); }
   if(key==="b"){ openBugForm(); e.preventDefault(); }
-  if(key==="x"){ revealAllChests(); e.preventDefault(); }
+  if(!e.repeat){
+    revealIdx = key===REVEAL_SEQ[revealIdx] ? revealIdx+1 : (key===REVEAL_SEQ[0] ? 1 : 0);
+    if(revealIdx===REVEAL_SEQ.length){ revealIdx = 0; revealAllChests(); e.preventDefault(); }
+  }
   if(e.code==="Space"){ swingSword(); e.preventDefault(); }
 });
 window.addEventListener("keyup", e=>{

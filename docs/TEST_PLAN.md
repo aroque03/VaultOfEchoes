@@ -195,7 +195,7 @@ phase is still 1.
 - **The Killer tiebreak ignores the green boss.** It checks only the purple
   `boss` completion, so a tied player whose first branch was the green boss
   doesn't get Killer from the tiebreak.
-- **X key is an undocumented reveal cheat** available to every participant. It
+- **Typing X Y Z is an undocumented reveal cheat** available to every participant. It
   opens all hidden rooms, which makes anyone look like an Explorer. Recommend
   gating it behind a QA URL flag for the study.
 - **Known issue — simultaneous uploads can leave weights briefly stale.** Each
