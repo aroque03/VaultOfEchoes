@@ -54,7 +54,7 @@ const SPINE_NOTES = [
   ],
   [
     "Wren's journal: \"I understand now. The vault does not trap people — it tests them. Every room is a question. Every key is an answer.\"",
-    "Wren's journal: \"I could leave. The final door is open. But if I go, the vault resets and the next person walks in blind. So I am leaving these notes instead.\"",
+    "Wren's journal: \"I could leave. The final door is open. But every secret I uncover shows me another, and I no longer want to stop. The walls hum in time with my heartbeat now. I am not lost in the vault — I am part of it. If you are reading this, you are standing inside me.\"",
   ],
 ];
 

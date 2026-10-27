@@ -241,13 +241,13 @@ function winGame(){
 
   if(found === TOTAL_NOTES){
     el("winTitle").textContent = "The Mystery Resolved";
-    el("winNarrative").innerHTML = "You collected every page of Wren's journal. The story is clear: <b>Wren mapped the vault, discovered it was alive, and chose to stay</b> — leaving notes so the next person could escape safely. As you step into daylight, you notice the vault door sealing shut behind you. Wren's final note said it all: <i>'I stayed so you could leave.'</i> Your mentor's sacrifice kept the village safe. You carry the truth home — and Wren's maps will guide every traveler who follows.";
+    el("winNarrative").innerHTML = "You collected every page of Wren's journal, and the story is clear: <b>Wren mapped the vault, fell under the spell of its secrets, and never left.</b> Each hidden room drew your mentor deeper, until there was no line left between the mapmaker and the map. As you step into daylight, the vault door grinds shut behind you, and for a moment the stones hum a low, familiar tune. Wren's last page said it plainly: <i>'I am not lost in the vault — I am part of it.'</i> Your mentor is still down there, in every shifting wall and humming stone. You carry the truth home, but you will never hear an echo the same way again.";
   } else if(found > 0){
     el("winTitle").textContent = "You Escaped";
-    el("winNarrative").innerHTML = "You turn the iron key. The last door groans open to daylight. As you step out, the vault door grinds shut behind you — final, absolute. From the pages you found, you know Wren <b>chose to stay inside</b>, leaving notes so the next person could escape. But pieces of the story remain hidden in the chambers behind that sealed door. You survived, yet the full truth of your mentor's sacrifice is still locked in the dark.";
+    el("winNarrative").innerHTML = "You turn the iron key. The last door groans open to daylight. As you step out, the vault door grinds shut behind you — final, absolute. From the pages you found, you know Wren <b>never wanted to leave</b>: every secret pulled your mentor deeper into the vault. But pieces of the story remain hidden in the chambers behind that sealed door, and somewhere in the dark, the stones are still humming.";
   } else {
     el("winTitle").textContent = "You Escaped";
-    el("winNarrative").innerHTML = "You turn the iron key. The last door groans open to daylight. The vault door seals shut behind you with a low rumble — there is no going back. The Vault of Echoes falls silent. You never found Wren's journal, and the mystery of your mentor's disappearance remains sealed inside. But you are alive, and <b>you are the first to walk out</b>. Perhaps that is enough. Perhaps Wren would have wanted it that way.";
+    el("winNarrative").innerHTML = "You turn the iron key. The last door groans open to daylight. The vault door seals shut behind you with a low rumble — there is no going back. The Vault of Echoes falls silent. You never found Wren's journal, and the mystery of your mentor's disappearance remains sealed inside. But you are alive, and <b>you are the first to walk out</b>. Perhaps that is enough. As the door closes, you could swear the walls hum a single note — almost like a voice saying goodbye.";
   }
 
   el("winNoteCount").textContent = `Journal pages found: ${found} / ${TOTAL_NOTES}`;
